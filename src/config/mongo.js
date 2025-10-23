@@ -1,7 +1,7 @@
 const mongoose = require('mongoose');
 
 // Use environment variable or fallback to default (for backward compatibility)
-const MONGO_URI = process.env.MONGO_URI || 'mongodb+srv://zextonsAdmin:12345@zextons.y1to4og.mongodb.net/gymwear';
+const MONGO_URI = process.env.MONGO_URI || 'mongodb+srv://zextonsAdmin:12345@zextons.y1to4og.mongodb.net/silsila';
 
 if (!process.env.MONGO_URI) {
   console.warn('⚠️  WARNING: Using hardcoded MongoDB credentials. Please set MONGO_URI in .env file for security.');

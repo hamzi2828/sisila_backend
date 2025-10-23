@@ -18,8 +18,6 @@ const productDetailController = require('../controller/productDetailController')
 const cartController = require('../controller/cartController');
 const wishlistController = require('../controller/wishlistController');
 const contactController = require('../controller/contactController');
-const packageController = require('../controller/packageController');
-const packageRegistrationController = require('../controller/packageRegistrationController');
 const { uploadSingle, uploadArray, uploadFields, heroUploadFields, toPublicPath } = require('../helper/upload');
 
 // Map each HTTP method to the corresponding controller function
@@ -212,22 +210,6 @@ router.get('/api/payment/getAllOrders', auth, paymentController.getAllOrders);
 router.put('/api/payment/orders/:orderId/status', auth, paymentController.updateOrderStatus);
 router.post('/api/payment/orders/:orderId/refund', auth, paymentController.refundOrder);
 
-
-// Payment and Order Management Routes for Gymfolio (Package Subscriptions)
-const gymfolioPaymentController = require('../controller/gymfolioPaymentController');
-
-router.post('/api/gymfolio/payment/create-package-checkout-session', auth, gymfolioPaymentController.createPackageCheckoutSession);
-router.get('/api/gymfolio/payment/verify/:sessionId', auth, gymfolioPaymentController.verifyPackagePayment);
-router.get('/api/gymfolio/payment/stripe-public-key', gymfolioPaymentController.getPublicKey);
-router.post('/api/gymfolio/payment/webhook', express.raw({ type: 'application/json' }), gymfolioPaymentController.handleWebhook);
-router.get('/api/gymfolio/orders', auth, gymfolioPaymentController.getUserOrders);
-router.get('/api/gymfolio/orders/:orderId', auth, gymfolioPaymentController.getOrderById);
-router.get('/api/gymfolio/getAllOrders', auth, gymfolioPaymentController.getAllOrders);
-router.put('/api/gymfolio/orders/:orderId/status', auth, gymfolioPaymentController.updateOrderStatus);
-router.post('/api/gymfolio/orders/:orderId/cancel', auth, gymfolioPaymentController.cancelSubscription);
-router.get('/api/gymfolio/subscription/status', auth, gymfolioPaymentController.getSubscriptionStatus);
-
-
 const publicProductController = require('../controller/publicProductController');
 const newsletterController = require('../controller/newsletterController');
 // Public Product Routes - No authentication required
@@ -256,56 +238,5 @@ router.post('/api/contact/:id/note', auth, contactController.addAdminNote); // A
 router.put('/api/contact/:id/assign', auth, contactController.assignContact); // Admin only
 router.put('/api/contact/:id/response-sent', auth, contactController.markResponseSent); // Admin only
 router.delete('/api/contact/:id', auth, contactController.deleteContact); // Admin only
-
-// Package routes
-router.get('/packages/active', packageController.getActivePackages); // Public route
-router.get('/packages', auth, packageController.getAllPackages); // Admin only
-router.get('/packages/:id', auth, packageController.getPackageById); // Admin only
-router.post('/packages', auth, packageController.createPackage); // Admin only
-router.put('/packages/:id', auth, packageController.updatePackage); // Admin only
-router.patch('/packages/:id/status', auth, packageController.togglePackageStatus); // Admin only
-router.patch('/packages/:id/order', auth, packageController.updatePackageOrder); // Admin only
-router.delete('/packages/:id', auth, packageController.deletePackage); // Admin only
-
-// Package Registration routes
-router.post('/package-registrations', packageRegistrationController.createRegistration); // Public route
-router.get('/package-registrations/stats', auth, packageRegistrationController.getRegistrationStats); // Admin only
-router.get('/package-registrations', auth, packageRegistrationController.getAllRegistrations); // Admin only
-router.get('/package-registrations/:id', auth, packageRegistrationController.getRegistrationById); // Admin only
-router.put('/package-registrations/:id/status', auth, packageRegistrationController.updateRegistrationStatus); // Admin only
-router.delete('/package-registrations/:id', auth, packageRegistrationController.deleteRegistration); // Admin only
-
-// Trainer routes
-const trainerController = require('../controller/trainerController');
-router.get('/trainers/active', trainerController.getActiveTrainers); // Public route
-router.get('/trainers/featured', trainerController.getFeaturedTrainers); // Public route
-router.get('/trainers/slug/:slug', trainerController.getTrainerBySlug); // Public route
-router.get('/trainers', auth, trainerController.getAllTrainers); // Admin only
-router.get('/trainers/:id', auth, trainerController.getTrainerById); // Admin only
-router.post('/trainers', auth, uploadSingle('image'), trainerController.createTrainer); // Admin only
-router.put('/trainers/:id', auth, uploadSingle('image'), trainerController.updateTrainer); // Admin only
-router.patch('/trainers/:id/status', auth, trainerController.toggleTrainerStatus); // Admin only
-router.patch('/trainers/:id/featured', auth, trainerController.toggleTrainerFeatured); // Admin only
-router.delete('/trainers/:id', auth, trainerController.deleteTrainer); // Admin only
-
-// Gym Class routes
-const gymClassController = require('../controller/gymClassController');
-router.get('/gym-classes/active', gymClassController.getActiveClasses); // Public route
-router.get('/gym-classes/featured', gymClassController.getFeaturedClasses); // Public route
-router.get('/gym-classes/category/:category', gymClassController.getClassesByCategory); // Public route
-router.get('/gym-classes/slug/:slug', gymClassController.getClassBySlug); // Public route
-router.get('/gym-classes', auth, gymClassController.getAllClasses); // Admin only
-router.get('/gym-classes/:id',  gymClassController.getClassById); // Admin only
-router.post('/gym-classes', auth, uploadFields([
-  { name: 'thumbnail', maxCount: 1 },
-  { name: 'gallery', maxCount: 10 }
-]), gymClassController.createClass); // Admin only
-router.put('/gym-classes/:id', auth, uploadFields([
-  { name: 'thumbnail', maxCount: 1 },
-  { name: 'gallery', maxCount: 10 }
-]), gymClassController.updateClass); // Admin only
-router.patch('/gym-classes/:id/status', auth, gymClassController.toggleClassStatus); // Admin only
-router.patch('/gym-classes/:id/featured', auth, gymClassController.toggleClassFeatured); // Admin only
-router.delete('/gym-classes/:id', auth, gymClassController.deleteClass); // Admin only
 
 module.exports = router;
