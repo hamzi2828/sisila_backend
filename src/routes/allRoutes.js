@@ -250,4 +250,15 @@ router.patch('/themes/:id/status', auth, themeController.toggleThemeStatus); // 
 router.patch('/themes/:id/order', auth, themeController.updateThemeOrder); // Admin only
 router.delete('/themes/:id', auth, themeController.deleteTheme); // Admin only
 
+// Series routes
+const seriesController = require('../controller/seriesController');
+router.get('/series/active', seriesController.getActiveSeries); // Public route
+router.get('/series', auth, seriesController.getAllSeries); // Admin only
+router.get('/series/:id', auth, seriesController.getSeriesById); // Admin only
+router.post('/series', auth, seriesController.createSeries); // Admin only
+router.put('/series/:id', auth, seriesController.updateSeries); // Admin only
+router.patch('/series/:id/status', auth, seriesController.toggleSeriesStatus); // Admin only
+router.patch('/series/:id/order', auth, seriesController.updateSeriesOrder); // Admin only
+router.delete('/series/:id', auth, seriesController.deleteSeries); // Admin only
+
 module.exports = router;
