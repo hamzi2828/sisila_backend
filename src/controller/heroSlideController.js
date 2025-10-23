@@ -5,15 +5,7 @@ const fs = require('fs');
 // Get all active hero slides (public endpoint)
 const getActiveSlides = async (req, res) => {
   try {
-    const { platform } = req.query;
-
-    // Build query filter
-    const filter = { isActive: true };
-    if (platform) {
-      filter.platform = platform;
-    }
-
-    const slides = await HeroSlide.find(filter).sort({ order: 1, createdAt: 1 });
+    const slides = await HeroSlide.find({ isActive: true }).sort({ order: 1, createdAt: 1 });
 
     res.status(200).json({
       success: true,
@@ -90,10 +82,9 @@ const createSlide = async (req, res) => {
       secondButtonLink,
       isActive,
       order,
-      ariaLabel,
-      platform
+      ariaLabel
     } = req.body;
-    
+
     // Handle file upload
     let imageUrl = '';
     if (req.file) {
@@ -104,7 +95,7 @@ const createSlide = async (req, res) => {
         message: 'Image is required'
       });
     }
-    
+
     const slideData = {
       title,
       description,
@@ -115,8 +106,7 @@ const createSlide = async (req, res) => {
       secondButtonLink: secondButtonLink || undefined,
       isActive: isActive !== undefined ? isActive === 'true' : true,
       order: order ? parseInt(order) : undefined,
-      ariaLabel: ariaLabel || undefined,
-      platform: platform || 'gymwear'
+      ariaLabel: ariaLabel || undefined
     };
     
     const slide = new HeroSlide(slideData);
@@ -167,10 +157,9 @@ const updateSlide = async (req, res) => {
       secondButtonLink,
       isActive,
       order,
-      ariaLabel,
-      platform
+      ariaLabel
     } = req.body;
-    
+
     const slide = await HeroSlide.findById(id);
     if (!slide) {
       return res.status(404).json({
@@ -178,9 +167,9 @@ const updateSlide = async (req, res) => {
         message: 'Hero slide not found'
       });
     }
-    
+
     const oldImagePath = slide.imageUrl;
-    
+
     const updateData = {
       title: title || slide.title,
       description: description || slide.description,
@@ -190,8 +179,7 @@ const updateSlide = async (req, res) => {
       secondButtonLink: secondButtonLink !== undefined ? secondButtonLink : slide.secondButtonLink,
       isActive: isActive !== undefined ? isActive === 'true' : slide.isActive,
       order: order ? parseInt(order) : slide.order,
-      ariaLabel: ariaLabel !== undefined ? ariaLabel : slide.ariaLabel,
-      platform: platform !== undefined ? platform : slide.platform
+      ariaLabel: ariaLabel !== undefined ? ariaLabel : slide.ariaLabel
     };
     
     // Handle new image upload

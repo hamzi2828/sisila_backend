@@ -50,15 +50,6 @@ const heroSlideSchema = new mongoose.Schema({
     type: String,
     trim: true,
     maxlength: [100, 'Aria label cannot exceed 100 characters']
-  },
-  platform: {
-    type: String,
-    required: [true, 'Platform is required'],
-    enum: {
-      values: ['gymwear', 'gymfolio'],
-      message: 'Platform must be either gymwear or gymfolio'
-    },
-    default: 'gymwear'
   }
 }, {
   timestamps: true,
@@ -69,23 +60,22 @@ const heroSlideSchema = new mongoose.Schema({
 // Index for performance
 heroSlideSchema.index({ isActive: 1, order: 1 });
 heroSlideSchema.index({ order: 1 });
-heroSlideSchema.index({ platform: 1, isActive: 1, order: 1 });
 
 // Static method to get active slides sorted by order
 heroSlideSchema.statics.getActiveSlides = function() {
   return this.find({ isActive: true }).sort({ order: 1, createdAt: 1 });
 };
 
-// Static method to get all slides sorted by platform and order
+// Static method to get all slides sorted by order
 heroSlideSchema.statics.getAllSlidesSorted = function() {
-  return this.find({}).sort({ platform: 1, order: 1, createdAt: 1 });
+  return this.find({}).sort({ order: 1, createdAt: 1 });
 };
 
-// Pre-save middleware to handle order per platform
+// Pre-save middleware to handle order
 heroSlideSchema.pre('save', async function(next) {
   if (this.isNew && this.order === 0) {
-    // Auto-assign order for new slides based on platform
-    const lastSlide = await this.constructor.findOne({ platform: this.platform }).sort({ order: -1 });
+    // Auto-assign order for new slides
+    const lastSlide = await this.constructor.findOne({}).sort({ order: -1 });
     this.order = lastSlide ? lastSlide.order + 1 : 1;
   }
   next();
