@@ -239,4 +239,15 @@ router.put('/api/contact/:id/assign', auth, contactController.assignContact); //
 router.put('/api/contact/:id/response-sent', auth, contactController.markResponseSent); // Admin only
 router.delete('/api/contact/:id', auth, contactController.deleteContact); // Admin only
 
+// Theme routes
+const themeController = require('../controller/themeController');
+router.get('/themes/active', themeController.getActiveThemes); // Public route
+router.get('/themes', auth, themeController.getAllThemes); // Admin only
+router.get('/themes/:id', auth, themeController.getThemeById); // Admin only
+router.post('/themes', auth, themeController.createTheme); // Admin only
+router.put('/themes/:id', auth, themeController.updateTheme); // Admin only
+router.patch('/themes/:id/status', auth, themeController.toggleThemeStatus); // Admin only
+router.patch('/themes/:id/order', auth, themeController.updateThemeOrder); // Admin only
+router.delete('/themes/:id', auth, themeController.deleteTheme); // Admin only
+
 module.exports = router;
