@@ -97,16 +97,49 @@ const publicProductService = {
     }
   },
 
+  async getProductsByCollection(collectionType, collectionId, limit = 20, page = 1) {
+    try {
+      const skip = (page - 1) * limit;
+
+      const products = await Product.find({
+        status: 'published',
+        collectionType: collectionType,
+        collectionId: collectionId
+      })
+        .sort({ createdAt: -1 })
+        .limit(parseInt(limit))
+        .skip(skip)
+        .select('-__v');
+
+      const total = await Product.countDocuments({
+        status: 'published',
+        collectionType: collectionType,
+        collectionId: collectionId
+      });
+
+      return {
+        success: true,
+        data: products,
+        count: products.length,
+        total,
+        page: parseInt(page),
+        totalPages: Math.ceil(total / limit)
+      };
+    } catch (error) {
+      throw new Error(`Failed to fetch products by collection: ${error.message}`);
+    }
+  },
+
   async getFeaturedProducts(limit = 10) {
     try {
-      const products = await Product.find({ 
+      const products = await Product.find({
         status: 'published',
-        isFeatured: true 
+        isFeatured: true
       })
         .sort({ createdAt: -1 })
         .limit(parseInt(limit))
         .select('-__v');
-      
+
       return {
         success: true,
         data: products,

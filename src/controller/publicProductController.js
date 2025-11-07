@@ -88,15 +88,37 @@ const publicProductController = {
     }
   },
 
+  async getProductsByCollection(req, res) {
+    try {
+      const { collectionType, collectionId } = req.params;
+      const { limit = 20, page = 1 } = req.query;
+
+      if (!['theme', 'series'].includes(collectionType)) {
+        return res.status(400).json({
+          success: false,
+          error: 'Invalid collection type. Must be "theme" or "series"'
+        });
+      }
+
+      const result = await publicProductService.getProductsByCollection(collectionType, collectionId, limit, page);
+      res.status(200).json(result);
+    } catch (error) {
+      res.status(500).json({
+        success: false,
+        error: error.message
+      });
+    }
+  },
+
   async getAllPublishedProducts(req, res) {
     try {
-      const { 
-        limit = 50, 
-        page = 1, 
-        sortBy = 'createdAt', 
-        sortOrder = 'desc' 
+      const {
+        limit = 50,
+        page = 1,
+        sortBy = 'createdAt',
+        sortOrder = 'desc'
       } = req.query;
-      
+
       const result = await publicProductService.getAllPublishedProducts(
         limit, 
         page, 

@@ -218,8 +218,9 @@ router.get('/api/public/products/latest', publicProductController.getLatestProdu
 router.get('/api/public/products/random', publicProductController.getRandomProducts);
 router.get('/api/public/products/featured', publicProductController.getFeaturedProducts);
 router.get('/api/public/products/search', publicProductController.searchProducts);
-router.get('/api/public/products/:id', publicProductController.getProductById);
+router.get('/api/public/products/collection/:collectionType/:collectionId', publicProductController.getProductsByCollection);
 router.get('/api/public/products/category/:category', publicProductController.getProductsByCategory);
+router.get('/api/public/products/:id', publicProductController.getProductById);
 
 // Newsletter routes
 router.post('/api/newsletter/subscribe', newsletterController.subscribe);
