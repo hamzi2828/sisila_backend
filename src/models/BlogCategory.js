@@ -35,13 +35,7 @@ const blogCategorySchema = new mongoose.Schema(
     featured: {
       type: Boolean,
       default: false,
-    },
-    platform: {
-      type: String,
-      enum: ['gymwear', 'gymfolio'],
-      default: 'gymwear',
-      required: [true, 'Platform is required']
-    },
+    }
   },
   { timestamps: true }
 );

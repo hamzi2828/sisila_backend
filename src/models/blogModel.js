@@ -71,12 +71,6 @@ const blogSchema = new mongoose.Schema(
     metaSchema: {
       type: String,
       trim: true
-    },
-    platform: {
-      type: String,
-      enum: ['gymwear', 'gymfolio'],
-      default: 'gymwear',
-      required: [true, 'Platform is required']
     }
   },
   { timestamps: true }
