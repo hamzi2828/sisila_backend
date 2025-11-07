@@ -58,6 +58,10 @@ const productSchema = new mongoose.Schema(
     metaDescription: { type: String, trim: true, maxLength: 320, default: undefined },
     metaKeywords: { type: String, trim: true, default: undefined },
     metaSchema: { type: String, trim: true, default: undefined },
+
+    // Collection fields (Theme or Series)
+    collectionType: { type: String, enum: ['theme', 'series', 'none'], default: 'none' },
+    collectionId: { type: String, trim: true, default: undefined },
   },
   { timestamps: true }
 );

@@ -185,7 +185,18 @@ const updateProductService = {
     if (typeof payload.metaSchema !== 'undefined') {
       updates.metaSchema = payload.metaSchema ? String(payload.metaSchema).trim() : undefined;
     }
-    
+
+    // Handle collection fields
+    if (typeof payload.collectionType !== 'undefined') {
+      const validCollectionTypes = ['theme', 'series', 'none'];
+      updates.collectionType = validCollectionTypes.includes(payload.collectionType) ? payload.collectionType : 'none';
+    }
+    if (typeof payload.collectionId !== 'undefined') {
+      updates.collectionId = payload.collectionId && updates.collectionType !== 'none'
+        ? String(payload.collectionId).trim()
+        : undefined;
+    }
+
     // Handle thumbnail - check for new upload or existing
     if (files.thumbnail && files.thumbnail[0]) {
       updates.thumbnailUrl = toPublicPath(files.thumbnail[0].filename);

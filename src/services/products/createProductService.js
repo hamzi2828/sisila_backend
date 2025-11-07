@@ -111,6 +111,8 @@ const createProductService = {
       metaDescription,
       metaKeywords,
       metaSchema,
+      collectionType = 'none',
+      collectionId,
     } = payload;
 
     // Parse fields that might come as JSON strings via multipart/form-data
@@ -283,6 +285,8 @@ const createProductService = {
       metaDescription: metaDescription ? String(metaDescription).trim() : undefined,
       metaKeywords: metaKeywords ? String(metaKeywords).trim() : undefined,
       metaSchema: metaSchema ? String(metaSchema).trim() : undefined,
+      collectionType: ['theme', 'series', 'none'].includes(collectionType) ? collectionType : 'none',
+      collectionId: collectionId && collectionType !== 'none' ? String(collectionId).trim() : undefined,
     };
 
     // Add colorMedia to the document
