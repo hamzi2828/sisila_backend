@@ -1,8 +1,7 @@
 // src/services/blogs/deleteBlogService.js
 const Blog = require('../../models/blogModel');
 const mongoose = require('mongoose');
-const fs = require('fs').promises;
-const path = require('path');
+const { deleteFromBlob } = require('../../helper/upload');
 
 /**
  * Delete a blog by ID with cleanup
@@ -121,39 +120,39 @@ const deleteBulkBlogsService = async (blogIds, deleteFiles = true) => {
 };
 
 /**
- * Delete associated files from filesystem
- * @param {Array<String>} filePaths - Array of file paths to delete
+ * Delete associated files from Vercel Blob storage
+ * @param {Array<String>} fileUrls - Array of file URLs to delete
  * @returns {Promise<Array>} Results of file deletion attempts
  */
-const deleteAssociatedFiles = async (filePaths) => {
+const deleteAssociatedFiles = async (fileUrls) => {
   const results = [];
-  
-  for (const filePath of filePaths) {
+
+  for (const fileUrl of fileUrls) {
     try {
-      // Convert URL path to filesystem path
-      const fileName = filePath.replace('/uploads/', '');
-      const fullPath = path.join(process.cwd(), 'uploads', fileName);
-      
-      // Check if file exists
-      await fs.access(fullPath);
-      
-      // Delete the file
-      await fs.unlink(fullPath);
-      
-      results.push({
-        path: filePath,
-        deleted: true
-      });
+      // Only delete if it's a blob URL
+      if (fileUrl && fileUrl.includes('blob.vercel-storage.com')) {
+        await deleteFromBlob(fileUrl);
+        results.push({
+          path: fileUrl,
+          deleted: true
+        });
+      } else {
+        // Not a blob URL, skip but report
+        results.push({
+          path: fileUrl,
+          deleted: false,
+          error: 'Not a blob URL, skipped'
+        });
+      }
     } catch (error) {
-      // File doesn't exist or couldn't be deleted
       results.push({
-        path: filePath,
+        path: fileUrl,
         deleted: false,
         error: error.message
       });
     }
   }
-  
+
   return results;
 };
 

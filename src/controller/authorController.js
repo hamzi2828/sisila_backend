@@ -135,12 +135,12 @@ exports.createAuthor = async (req, res) => {
     }
 
 
-    // Create author data
+    // Create author data (filename now contains full Vercel Blob URL)
     const authorData = {
       name: name.trim(),
       email: email.toLowerCase().trim(),
       bio: bio || '',
-      avatar: avatarFile ? `/uploads/${avatarFile.filename}` : null,
+      avatar: avatarFile ? avatarFile.filename : null,
       active
     };
 
@@ -216,12 +216,12 @@ exports.updateAuthor = async (req, res) => {
     const avatarFile = req.files?.avatar?.[0];
 
 
-    // Build update object
+    // Build update object (filename now contains full Vercel Blob URL)
     const updateData = {};
     if (name !== undefined) updateData.name = name.trim();
     if (email !== undefined) updateData.email = email.toLowerCase().trim();
     if (bio !== undefined) updateData.bio = bio;
-    if (avatarFile) updateData.avatar = `/uploads/${avatarFile.filename}`;
+    if (avatarFile) updateData.avatar = avatarFile.filename;
     if (active !== undefined) updateData.active = active;
 
     // Update author

@@ -2,10 +2,16 @@
 const Product = require('../../model/product');
 const crypto = require('crypto');
 
-// Helper function to convert uploaded filename to public path
+// Helper function to get public path from filename
+// Now filename already contains full Vercel Blob URL
 const toPublicPath = (filename) => {
   if (!filename) return null;
-  return `/uploads/${filename}`;
+  // If it's already a full URL, return as-is
+  if (filename.startsWith('http://') || filename.startsWith('https://')) {
+    return filename;
+  }
+  // For backward compatibility with old paths
+  return filename;
 };
 
 // Helper function to parse JSON if string or return original value

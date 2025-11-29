@@ -109,9 +109,9 @@ const updateBlogService = async (blogId, updateData, files = {}) => {
     if (parsedTags !== undefined) updateObject.tags = parsedTags;
     if (platform !== undefined) updateObject.platform = platform;
     
-    // File uploads
-    if (imageFile) updateObject.image = `/uploads/${imageFile.filename}`;
-    if (thumbnailFile) updateObject.thumbnail = `/uploads/${thumbnailFile.filename}`;
+    // File uploads (filename now contains full Vercel Blob URL)
+    if (imageFile) updateObject.image = imageFile.filename;
+    if (thumbnailFile) updateObject.thumbnail = thumbnailFile.filename;
     
     // SEO fields
     if (metaTitle !== undefined) {

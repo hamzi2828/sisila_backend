@@ -1,8 +1,6 @@
 // src/controller/settingsController.js
 
 const Settings = require('../models/settings');
-const fs = require('fs').promises;
-const path = require('path');
 
 const settingsController = {
   // GET /settings - Get current settings
@@ -139,28 +137,14 @@ const settingsController = {
         });
       }
 
-      // Generate new logo URL
-      const logoUrl = `/uploads/${logoFile.filename}`;
-
-      // Get current settings to backup old logo
-      const currentSettings = await Settings.getSettings();
-      const oldLogoUrl = currentSettings.logoUrl;
+      // filename now contains full Vercel Blob URL
+      const logoUrl = logoFile.filename;
 
       // Update settings with new logo URL
       const updatedSettings = await Settings.updateSettings({ logoUrl });
 
-      // Remove old logo file if it exists and is not the default
-      if (oldLogoUrl && oldLogoUrl !== '/images/logo.png' && oldLogoUrl.startsWith('/uploads/')) {
-        try {
-          const oldLogoPath = path.join(__dirname, '../../uploads', path.basename(oldLogoUrl));
-          await fs.access(oldLogoPath); // Check if file exists
-          await fs.unlink(oldLogoPath); // Delete old logo
-          console.log('Old logo deleted:', oldLogoPath);
-        } catch (err) {
-          console.log('Could not delete old logo:', err.message);
-          // Don't fail the request if old logo deletion fails
-        }
-      }
+      // Note: Old blob logos are not deleted automatically
+      // They will be cleaned up by Vercel Blob retention policies or manual cleanup
 
       return res.status(200).json({
         success: true,
@@ -183,26 +167,12 @@ const settingsController = {
   // DELETE /settings/logo - Remove logo (reset to default)
   removeLogo: async (req, res) => {
     try {
-      // Get current settings
-      const currentSettings = await Settings.getSettings();
-      const currentLogoUrl = currentSettings.logoUrl;
-
       // Reset to default logo
       const defaultLogoUrl = '/images/logo.png';
       const updatedSettings = await Settings.updateSettings({ logoUrl: defaultLogoUrl });
 
-      // Remove current logo file if it's uploaded (not default)
-      if (currentLogoUrl && currentLogoUrl !== defaultLogoUrl && currentLogoUrl.startsWith('/uploads/')) {
-        try {
-          const logoPath = path.join(__dirname, '../../uploads', path.basename(currentLogoUrl));
-          await fs.access(logoPath); // Check if file exists
-          await fs.unlink(logoPath); // Delete logo
-          console.log('Logo file deleted:', logoPath);
-        } catch (err) {
-          console.log('Could not delete logo file:', err.message);
-          // Don't fail the request if logo deletion fails
-        }
-      }
+      // Note: Old blob logos are not deleted automatically
+      // They will be cleaned up by Vercel Blob retention policies or manual cleanup
 
       return res.status(200).json({
         success: true,
@@ -222,10 +192,6 @@ const settingsController = {
   // POST /settings/reset - Reset all settings to default
   resetSettings: async (req, res) => {
     try {
-      // Get current settings to backup logo
-      const currentSettings = await Settings.getSettings();
-      const currentLogoUrl = currentSettings.logoUrl;
-
       // Create default settings
       const defaultSettings = {
         siteName: 'GymWear',
@@ -247,17 +213,8 @@ const settingsController = {
       // Update settings to default
       const resetSettings = await Settings.updateSettings(defaultSettings);
 
-      // Remove uploaded logo if exists
-      if (currentLogoUrl && currentLogoUrl !== '/images/logo.png' && currentLogoUrl.startsWith('/uploads/')) {
-        try {
-          const logoPath = path.join(__dirname, '../../uploads', path.basename(currentLogoUrl));
-          await fs.access(logoPath);
-          await fs.unlink(logoPath);
-          console.log('Uploaded logo deleted during reset:', logoPath);
-        } catch (err) {
-          console.log('Could not delete uploaded logo during reset:', err.message);
-        }
-      }
+      // Note: Old blob files are not deleted automatically
+      // They will be cleaned up by Vercel Blob retention policies or manual cleanup
 
       return res.status(200).json({
         success: true,

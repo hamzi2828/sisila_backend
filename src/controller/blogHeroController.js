@@ -1,6 +1,4 @@
 const BlogHero = require('../models/blogHero');
-const fs = require('fs').promises;
-const path = require('path');
 
 const blogHeroController = {
   // GET /blog-hero/active - Get active hero section (public)
@@ -93,13 +91,12 @@ const blogHeroController = {
         sortOrder
       } = req.body;
 
-      // Handle uploaded file
+      // Handle uploaded file (filename now contains full Vercel Blob URL)
       let finalBackgroundImage = backgroundImage;
       const uploadedFile = req.files?.backgroundImage?.[0];
 
       if (uploadedFile) {
-        // Generate image URL for uploaded file
-        finalBackgroundImage = `/uploads/${uploadedFile.filename}`;
+        finalBackgroundImage = uploadedFile.filename;
       }
 
       // Validate required fields
@@ -165,11 +162,10 @@ const blogHeroController = {
         });
       }
 
-      // Handle uploaded file
+      // Handle uploaded file (filename now contains full Vercel Blob URL)
       const uploadedFile = req.files?.backgroundImage?.[0];
       if (uploadedFile) {
-        // Generate image URL for uploaded file
-        updateData.backgroundImage = `/uploads/${uploadedFile.filename}`;
+        updateData.backgroundImage = uploadedFile.filename;
       }
 
       // Update fields if provided
@@ -297,8 +293,8 @@ const blogHeroController = {
         });
       }
 
-      // Generate image URL
-      const imageUrl = `/uploads/${imageFile.filename}`;
+      // filename now contains full Vercel Blob URL
+      const imageUrl = imageFile.filename;
 
       return res.status(200).json({
         success: true,

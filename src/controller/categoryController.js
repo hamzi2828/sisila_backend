@@ -64,7 +64,7 @@ const categoryController = {
       active = Boolean(active);
       featured = Boolean(featured);
 
-      // Handle file uploads
+      // Handle file uploads (filename now contains full Vercel Blob URL)
       const thumbnailFile = req.files?.thumbnail?.[0];
       const bannerFile = req.files?.banner?.[0];
 
@@ -74,8 +74,8 @@ const categoryController = {
         description,
         active,
         featured,
-        thumbnailUrl: thumbnailFile ? `/uploads/${thumbnailFile.filename}` : null,
-        bannerUrl: bannerFile ? `/uploads/${bannerFile.filename}` : null
+        thumbnailUrl: thumbnailFile ? thumbnailFile.filename : null,
+        bannerUrl: bannerFile ? bannerFile.filename : null
       };
 
       const created = await Category.create(categoryData);
@@ -102,15 +102,15 @@ const categoryController = {
       if (typeof payload.active !== 'undefined') updates.active = Boolean(payload.active);
       if (typeof payload.featured !== 'undefined') updates.featured = Boolean(payload.featured);
 
-      // Handle file uploads
+      // Handle file uploads (filename now contains full Vercel Blob URL)
       const thumbnailFile = req.files?.thumbnail?.[0];
       const bannerFile = req.files?.banner?.[0];
 
       if (thumbnailFile) {
-        updates.thumbnailUrl = `/uploads/${thumbnailFile.filename}`;
+        updates.thumbnailUrl = thumbnailFile.filename;
       }
       if (bannerFile) {
-        updates.bannerUrl = `/uploads/${bannerFile.filename}`;
+        updates.bannerUrl = bannerFile.filename;
       }
 
       const updated = await Category.findByIdAndUpdate(

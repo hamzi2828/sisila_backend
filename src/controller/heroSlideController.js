@@ -1,6 +1,4 @@
 const HeroSlide = require('../models/heroSlideModel');
-const path = require('path');
-const fs = require('fs');
 
 // Get all active hero slides (public endpoint)
 const getActiveSlides = async (req, res) => {
@@ -85,10 +83,10 @@ const createSlide = async (req, res) => {
       ariaLabel
     } = req.body;
 
-    // Handle file upload
+    // Handle file upload (filename now contains full Vercel Blob URL)
     let imageUrl = '';
     if (req.file) {
-      imageUrl = `/uploads/${req.file.filename}`;
+      imageUrl = req.file.filename;
     } else {
       return res.status(400).json({
         success: false,
@@ -118,14 +116,8 @@ const createSlide = async (req, res) => {
       data: slide
     });
   } catch (error) {
-    // Clean up uploaded file if database save fails
-    if (req.file) {
-      const filePath = path.join(__dirname, '../../uploads', req.file.filename);
-      if (fs.existsSync(filePath)) {
-        fs.unlinkSync(filePath);
-      }
-    }
-    
+    // Note: Blob files are not cleaned up on error - they will be managed by Vercel Blob
+
     console.error('Error creating hero slide:', error);
     
     if (error.name === 'ValidationError') {
@@ -182,17 +174,11 @@ const updateSlide = async (req, res) => {
       ariaLabel: ariaLabel !== undefined ? ariaLabel : slide.ariaLabel
     };
     
-    // Handle new image upload
+    // Handle new image upload (filename now contains full Vercel Blob URL)
     if (req.file) {
-      updateData.imageUrl = `/uploads/${req.file.filename}`;
-      
-      // Delete old image file if it exists and is not the default
-      if (oldImagePath && oldImagePath.startsWith('/uploads/')) {
-        const oldFilePath = path.join(__dirname, '../../uploads', path.basename(oldImagePath));
-        if (fs.existsSync(oldFilePath)) {
-          fs.unlinkSync(oldFilePath);
-        }
-      }
+      updateData.imageUrl = req.file.filename;
+      // Note: Old blob images are not deleted automatically
+      // They will be cleaned up by Vercel Blob retention policies or manual cleanup
     }
     
     const updatedSlide = await HeroSlide.findByIdAndUpdate(id, updateData, {
@@ -206,14 +192,8 @@ const updateSlide = async (req, res) => {
       data: updatedSlide
     });
   } catch (error) {
-    // Clean up uploaded file if database save fails
-    if (req.file) {
-      const filePath = path.join(__dirname, '../../uploads', req.file.filename);
-      if (fs.existsSync(filePath)) {
-        fs.unlinkSync(filePath);
-      }
-    }
-    
+    // Note: Blob files are not cleaned up on error - they will be managed by Vercel Blob
+
     console.error('Error updating hero slide:', error);
     
     if (error.name === 'ValidationError') {
@@ -318,7 +298,7 @@ const updateSlideOrder = async (req, res) => {
 const deleteSlide = async (req, res) => {
   try {
     const { id } = req.params;
-    
+
     const slide = await HeroSlide.findById(id);
     if (!slide) {
       return res.status(404).json({
@@ -326,15 +306,10 @@ const deleteSlide = async (req, res) => {
         message: 'Hero slide not found'
       });
     }
-    
-    // Delete image file if it exists
-    if (slide.imageUrl && slide.imageUrl.startsWith('/uploads/')) {
-      const filePath = path.join(__dirname, '../../uploads', path.basename(slide.imageUrl));
-      if (fs.existsSync(filePath)) {
-        fs.unlinkSync(filePath);
-      }
-    }
-    
+
+    // Note: Blob images are not deleted automatically
+    // They will be cleaned up by Vercel Blob retention policies or manual cleanup
+
     await HeroSlide.findByIdAndDelete(id);
     
     res.status(200).json({

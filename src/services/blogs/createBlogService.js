@@ -96,15 +96,15 @@ const createBlogService = async (blogData, files, userId) => {
       throw new Error('A blog with this slug already exists');
     }
 
-    // Prepare blog data
+    // Prepare blog data (filename now contains full Vercel Blob URL)
     const newBlogData = {
       title: title.trim(),
       content: content.trim(),
       categoryId: new mongoose.Types.ObjectId(categoryId),
       status,
       slug: finalSlug,
-      image: `/uploads/${imageFile.filename}`,
-      thumbnail: thumbnailFile ? `/uploads/${thumbnailFile.filename}` : null,
+      image: imageFile.filename,
+      thumbnail: thumbnailFile ? thumbnailFile.filename : null,
       author: authorId ? new mongoose.Types.ObjectId(authorId) : null, // Use authorId if provided
       tags: parsedTags,
       platform: platform || 'gymwear',
@@ -156,7 +156,7 @@ const stripHtml = (html) => {
  * Generate default JSON-LD schema
  * @param {String} title - Blog title
  * @param {String} content - Blog content
- * @param {String} imageUrl - Image URL
+ * @param {String} imageUrl - Image URL (now full Vercel Blob URL)
  * @returns {String} JSON-LD schema string
  */
 const generateDefaultSchema = (title, content, imageUrl) => {
@@ -165,7 +165,7 @@ const generateDefaultSchema = (title, content, imageUrl) => {
     "@type": "BlogPosting",
     "headline": title,
     "description": stripHtml(content).slice(0, 155),
-    "image": imageUrl ? `/uploads/${imageUrl}` : undefined,
+    "image": imageUrl || undefined,
     "datePublished": new Date().toISOString(),
     "dateModified": new Date().toISOString(),
     "author": {
@@ -181,7 +181,7 @@ const generateDefaultSchema = (title, content, imageUrl) => {
       }
     }
   };
-  
+
   return JSON.stringify(schema);
 };
 

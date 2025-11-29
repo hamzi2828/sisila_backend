@@ -63,9 +63,7 @@ authorSchema.pre('save', function(next) {
 
 // Virtual for full avatar URL
 authorSchema.virtual('avatarUrl').get(function() {
-  if (this.avatar && this.avatar.startsWith('/uploads/')) {
-    return this.avatar;
-  }
+  // Return avatar as-is (could be full blob URL, /uploads/ path, or null)
   return this.avatar || null;
 });
 
