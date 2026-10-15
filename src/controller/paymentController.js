@@ -53,6 +53,69 @@ const paymentController = {
     }
   },
 
+  // POST /api/payment/cod-order - place a Cash on Delivery order from the user's saved cart
+  async createCodOrder(req, res) {
+    try {
+      const userId = req.user._id || req.user.id;
+      const { shippingAddress, shippingMethod } = req.body;
+      const required = ['fullName', 'email', 'phone', 'address', 'city'];
+      const missing = required.filter((f) => !shippingAddress || !String(shippingAddress[f] || '').trim());
+      if (missing.length) {
+        return res.status(400).json({ success: false, message: `Missing shipping details: ${missing.join(', ')}` });
+      }
+      const address = {
+        fullName: shippingAddress.fullName,
+        email: shippingAddress.email,
+        phone: shippingAddress.phone,
+        address: shippingAddress.address,
+        city: shippingAddress.city,
+        state: shippingAddress.state || shippingAddress.city,
+        zipCode: shippingAddress.zipCode || '00000',
+        country: shippingAddress.country || 'Pakistan',
+      };
+      const order = await paymentService.createCodOrder(userId, address, shippingMethod === 'express' ? 'express' : 'standard');
+      await order.populate('items.product', 'name thumbnailUrl bannerUrls');
+      res.status(201).json({ success: true, order });
+    } catch (error) {
+      console.error('Error in createCodOrder:', error);
+      res.status(error.status || 500).json({ success: false, message: error.message || 'Failed to place order' });
+    }
+  },
+
+  // POST /api/orders/track - public order status lookup; order number and email must both match
+  async trackOrder(req, res) {
+    try {
+      const orderNumber = String(req.body.orderNumber || '').trim().toUpperCase();
+      const email = String(req.body.email || '').trim().toLowerCase();
+      if (!orderNumber || !email) {
+        return res.status(400).json({ success: false, message: 'Order number and email are required' });
+      }
+      const order = await Order.findOne({ orderNumber }).populate('items.product', 'name thumbnailUrl');
+      if (!order || String(order.shippingAddress?.email || '').toLowerCase() !== email) {
+        return res.status(404).json({ success: false, message: 'We could not find an order with those details' });
+      }
+      res.json({
+        success: true,
+        order: {
+          orderNumber: order.orderNumber,
+          orderStatus: order.orderStatus,
+          paymentStatus: order.paymentStatus,
+          paymentMethod: order.paymentMethod,
+          trackingNumber: order.trackingNumber,
+          createdAt: order.createdAt,
+          shippedAt: order.shippedAt,
+          deliveredAt: order.deliveredAt,
+          city: order.shippingAddress?.city,
+          total: order.total,
+          items: order.items.map((i) => ({ name: i.product?.name || 'Item', thumbnailUrl: i.product?.thumbnailUrl, quantity: i.quantity, size: i.size, color: i.color })),
+        },
+      });
+    } catch (error) {
+      console.error('Error in trackOrder:', error);
+      res.status(500).json({ success: false, message: 'Failed to look up order' });
+    }
+  },
+
   async createPaymentIntent(req, res) {
     try {
       const { amount, currency, metadata } = req.body;
@@ -66,7 +129,7 @@ const paymentController = {
 
       const result = await paymentService.createPaymentIntent(
         amount,
-        currency || 'usd',
+        currency || 'pkr',
         metadata || {}
       );
 

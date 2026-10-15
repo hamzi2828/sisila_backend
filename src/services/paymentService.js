@@ -3,10 +3,36 @@ const Order = require('../models/order');
 const Product = require('../models/product');
 const Cart = require('../models/cartModel');
 
+// Store currency and shipping rules (kept in sync with the storefront's src/lib/formatPrice.ts).
+const CURRENCY = 'pkr';
+const FREE_SHIPPING_THRESHOLD = 5000;
+const STANDARD_SHIPPING_FEE = 250;
+const EXPRESS_SHIPPING_FEE = 500;
+
+function shippingCostFor(subtotal, method) {
+  if (method === 'express') return EXPRESS_SHIPPING_FEE;
+  return subtotal >= FREE_SHIPPING_THRESHOLD ? 0 : STANDARD_SHIPPING_FEE;
+}
+
+function shippingRate(name, amount, minDays, maxDays) {
+  return {
+    shipping_rate_data: {
+      type: 'fixed_amount',
+      fixed_amount: { amount: Math.round(amount * 100), currency: CURRENCY },
+      display_name: name,
+      delivery_estimate: {
+        minimum: { unit: 'business_day', value: minDays },
+        maximum: { unit: 'business_day', value: maxDays },
+      },
+    },
+  };
+}
+
 class PaymentService {
   async createCheckoutSession(userId, cartItems, shippingAddress, billingAddress) {
     try {
       const lineItems = await this.prepareLineItems(cartItems);
+      const subtotal = cartItems.reduce((sum, item) => sum + item.price * item.quantity, 0);
 
       const orderNumber = await Order.generateOrderNumber();
 
@@ -33,46 +59,11 @@ class PaymentService {
           })))
         },
         shipping_options: [
-          {
-            shipping_rate_data: {
-              type: 'fixed_amount',
-              fixed_amount: {
-                amount: 0,
-                currency: 'usd',
-              },
-              display_name: 'Free shipping',
-              delivery_estimate: {
-                minimum: {
-                  unit: 'business_day',
-                  value: 5,
-                },
-                maximum: {
-                  unit: 'business_day',
-                  value: 7,
-                },
-              },
-            },
-          },
-          {
-            shipping_rate_data: {
-              type: 'fixed_amount',
-              fixed_amount: {
-                amount: 1500,
-                currency: 'usd',
-              },
-              display_name: 'Express shipping',
-              delivery_estimate: {
-                minimum: {
-                  unit: 'business_day',
-                  value: 1,
-                },
-                maximum: {
-                  unit: 'business_day',
-                  value: 3,
-                },
-              },
-            },
-          },
+          shippingRate(
+            subtotal >= FREE_SHIPPING_THRESHOLD ? 'Free standard delivery' : 'Standard delivery',
+            shippingCostFor(subtotal, 'standard'), 3, 5
+          ),
+          shippingRate('Express delivery', EXPRESS_SHIPPING_FEE, 1, 2),
         ],
         allow_promotion_codes: true,
         billing_address_collection: 'auto',
@@ -104,11 +95,11 @@ class PaymentService {
 
       lineItems.push({
         price_data: {
-          currency: 'usd',
+          currency: CURRENCY,
           product_data: {
             name: product.name,
             description: `Size: ${item.size}, Color: ${item.color}`,
-            images: product.images && product.images.length > 0 ? [product.images[0]] : [],
+            images: product.thumbnailUrl ? [product.thumbnailUrl] : (product.images && product.images.length > 0 ? [product.images[0]] : []),
             metadata: {
               productId: product._id.toString(),
               size: item.size,
@@ -124,7 +115,7 @@ class PaymentService {
     return lineItems;
   }
 
-  async createPaymentIntent(amount, currency = 'usd', metadata = {}) {
+  async createPaymentIntent(amount, currency = CURRENCY, metadata = {}) {
     try {
       const paymentIntent = await stripe.paymentIntents.create({
         amount: Math.round(amount * 100),
@@ -144,6 +135,62 @@ class PaymentService {
       console.error('Error creating payment intent:', error);
       throw new Error(`Failed to create payment intent: ${error.message}`);
     }
+  }
+
+  // Cash on Delivery: build the order from the user's saved cart with prices taken from the
+  // database (never from the client), then clear the cart.
+  async createCodOrder(userId, shippingAddress, shippingMethod = 'standard') {
+    const cart = await Cart.findOne({ userId }).populate('items.productId');
+    if (!cart || cart.items.length === 0) {
+      throw Object.assign(new Error('Your cart is empty'), { status: 400 });
+    }
+
+    const items = [];
+    for (const item of cart.items) {
+      const product = item.productId;
+      if (!product || product.status !== 'published') continue;
+      const wanted = item.variant && item.variant.variantId;
+      const variant = wanted
+        ? (product.variants || []).find((v) => v.variantId === wanted || String(v._id) === wanted)
+        : null;
+      const unitPrice = variant
+        ? (variant.discountedPrice || variant.price)
+        : (product.discountedPrice || product.price);
+      items.push({
+        product: product._id,
+        variantId: (variant && variant.variantId) || wanted || 'default',
+        sku: (variant && variant.sku) || (item.variant && item.variant.variantSku) || product.slug,
+        quantity: item.quantity,
+        price: unitPrice,
+        size: (variant && variant.size) || 'One Size',
+        color: (variant && variant.color) || 'Default',
+      });
+    }
+    if (items.length === 0) {
+      throw Object.assign(new Error('None of the items in your cart are available'), { status: 400 });
+    }
+
+    const subtotal = items.reduce((sum, i) => sum + i.price * i.quantity, 0);
+    const shippingCost = shippingCostFor(subtotal, shippingMethod);
+    const order = await Order.create({
+      user: userId,
+      orderNumber: await Order.generateOrderNumber(),
+      items,
+      shippingAddress,
+      billingAddress: shippingAddress,
+      paymentMethod: 'cod',
+      paymentStatus: 'pending',
+      orderStatus: 'pending',
+      subtotal,
+      shippingCost,
+      tax: 0,
+      total: subtotal + shippingCost,
+      notes: shippingMethod === 'express' ? 'Express delivery' : 'Standard delivery',
+    });
+
+    cart.items = [];
+    await cart.save();
+    return order;
   }
 
   async handleWebhook(signature, payload) {
@@ -216,7 +263,7 @@ class PaymentService {
 
       const shippingCost = session.shipping_cost ? session.shipping_cost.amount_total / 100 : 0;
       const subtotal = (session.amount_total / 100) - shippingCost;
-      const tax = subtotal * 0.08;
+      const tax = 0;
 
       const order = new Order({
         user: userId,

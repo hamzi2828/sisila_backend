@@ -65,7 +65,7 @@ const shippingAddressSchema = new mongoose.Schema({
   country: {
     type: String,
     required: true,
-    default: 'United States'
+    default: 'Pakistan'
   }
 });
 

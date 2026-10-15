@@ -194,8 +194,8 @@ const settingsController = {
     try {
       // Create default settings
       const defaultSettings = {
-        siteName: 'GymWear',
-        siteUrl: 'https://gymwear.example.com',
+        siteName: 'Silsila',
+        siteUrl: 'https://www.silsilla.pk',
         logoUrl: '/images/logo.png',
         timezone: 'UTC+05:00',
         dateFormat: 'MM/DD/YYYY',
@@ -203,7 +203,7 @@ const settingsController = {
         marketingEmails: false,
         securityAlerts: true,
         twoFactorAuth: false,
-        currency: 'USD',
+        currency: 'PKR',
         paymentMethods: ['credit_card', 'paypal'],
         youtubeUrl: '',
         facebookUrl: '',

@@ -27,7 +27,7 @@ const themes = [
       },
       {
         title: 'Sunday Harmony',
-        image: 'https://images.unsplash.com/photo-1520975922284-c0d7a98f3f6b?auto=format&fit=crop&w=1200&q=80'
+        image: 'https://images.unsplash.com/photo-1523381210434-271e8be1f52b?auto=format&fit=crop&w=1200&q=80'
       },
       {
         title: 'Folk Gathering',
@@ -43,7 +43,7 @@ const themes = [
       },
       {
         title: 'Gospel Spirit',
-        image: 'https://images.unsplash.com/photo-1520975922284-c0d7a98f3f6b?auto=format&fit=crop&w=1200&q=80'
+        image: 'https://images.unsplash.com/photo-1523381210434-271e8be1f52b?auto=format&fit=crop&w=1200&q=80'
       }
     ],
     isActive: true,
@@ -67,7 +67,7 @@ const themes = [
       },
       {
         title: 'Canvas Motion',
-        image: 'https://images.unsplash.com/photo-1494319827402-c4b9b83f5741?auto=format&fit=crop&w=1200&q=80'
+        image: 'https://images.unsplash.com/photo-1558769132-cb1aea458c5e?auto=format&fit=crop&w=1200&q=80'
       },
       {
         title: 'Studio Light',
@@ -83,7 +83,7 @@ const themes = [
       },
       {
         title: 'Creative Flow',
-        image: 'https://images.unsplash.com/photo-1494319827402-c4b9b83f5741?auto=format&fit=crop&w=1200&q=80'
+        image: 'https://images.unsplash.com/photo-1558769132-cb1aea458c5e?auto=format&fit=crop&w=1200&q=80'
       },
       {
         title: 'Artistic Workspace',
@@ -111,11 +111,11 @@ const themes = [
       },
       {
         title: 'Dune Lines',
-        image: 'https://images.unsplash.com/photo-1520975659191-5bb8826e8f76?auto=format&fit=crop&w=1200&q=80'
+        image: 'https://images.unsplash.com/photo-1469334031218-e382a71b716b?auto=format&fit=crop&w=1200&q=80'
       },
       {
         title: 'Wind Textures',
-        image: 'https://images.unsplash.com/photo-1514846326710-096e4a8035e1?auto=format&fit=crop&w=1200&q=80'
+        image: 'https://images.unsplash.com/photo-1434389677669-e08b4cac3105?auto=format&fit=crop&w=1200&q=80'
       },
       {
         title: 'Coastal Breeze',
@@ -127,11 +127,11 @@ const themes = [
       },
       {
         title: 'Desert Sands',
-        image: 'https://images.unsplash.com/photo-1520975659191-5bb8826e8f76?auto=format&fit=crop&w=1200&q=80'
+        image: 'https://images.unsplash.com/photo-1469334031218-e382a71b716b?auto=format&fit=crop&w=1200&q=80'
       },
       {
         title: 'Nature Flow',
-        image: 'https://images.unsplash.com/photo-1514846326710-096e4a8035e1?auto=format&fit=crop&w=1200&q=80'
+        image: 'https://images.unsplash.com/photo-1434389677669-e08b4cac3105?auto=format&fit=crop&w=1200&q=80'
       }
     ],
     isActive: true,
@@ -155,7 +155,7 @@ const themes = [
       },
       {
         title: 'Neighborhood Light',
-        image: 'https://images.unsplash.com/photo-1542206395-9feb3edaa68a?auto=format&fit=crop&w=1200&q=80'
+        image: 'https://images.unsplash.com/photo-1483985988355-763728e1935b?auto=format&fit=crop&w=1200&q=80'
       },
       {
         title: 'Togetherness',
@@ -171,7 +171,7 @@ const themes = [
       },
       {
         title: 'Urban Joy',
-        image: 'https://images.unsplash.com/photo-1542206395-9feb3edaa68a?auto=format&fit=crop&w=1200&q=80'
+        image: 'https://images.unsplash.com/photo-1483985988355-763728e1935b?auto=format&fit=crop&w=1200&q=80'
       },
       {
         title: 'Unity',

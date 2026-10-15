@@ -84,7 +84,7 @@ app.get('/', (req, res) => {
     const mongoose = require('mongoose');
 
     res.json({
-      message: 'Welcome to Gymwear API',
+      message: 'Welcome to Silsila API',
       status: 'running',
       timestamp: new Date().toISOString(),
       version: '1.0.0',
@@ -97,7 +97,7 @@ app.get('/', (req, res) => {
   } catch (error) {
     console.error('Error in welcome route:', error);
     res.status(500).json({
-      message: 'Welcome to Gymwear API',
+      message: 'Welcome to Silsila API',
       status: 'error',
       error: error.message,
       timestamp: new Date().toISOString(),

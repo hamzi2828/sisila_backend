@@ -54,7 +54,7 @@ exports.subscribe = async (req, res) => {
 
     return res.status(201).json({
       success: true,
-      message: 'Successfully subscribed to newsletter! Welcome to our fitness community.',
+      message: 'Successfully subscribed to newsletter! Welcome to the Silsila circle.',
       data: {
         email: newSubscription.email,
         subscribedAt: newSubscription.subscribedAt

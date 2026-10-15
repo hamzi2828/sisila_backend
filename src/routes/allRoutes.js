@@ -200,6 +200,8 @@ router.delete('/api/wishlist', auth, wishlistController.clearWishlist);
 const paymentController = require('../controller/paymentController');
 
 router.post('/api/payment/create-checkout-session', auth, paymentController.createCheckoutSession);
+router.post('/api/payment/cod-order', auth, paymentController.createCodOrder);
+router.post('/api/orders/track', paymentController.trackOrder);
 router.post('/api/payment/create-payment-intent', paymentController.createPaymentIntent);
 router.post('/api/payment/webhook', express.raw({ type: 'application/json' }), paymentController.handleWebhook);
 router.get('/api/payment/verify/:sessionId', auth, paymentController.verifyPayment);

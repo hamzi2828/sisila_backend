@@ -9,13 +9,13 @@ const settingsSchema = new mongoose.Schema(
       type: String, 
       required: true, 
       trim: true, 
-      default: 'GymWear' 
+      default: 'Silsila' 
     },
     siteUrl: { 
       type: String, 
       required: true, 
       trim: true, 
-      default: 'https://gymwear.example.com' 
+      default: 'https://www.silsilla.pk' 
     },
     logoUrl: { 
       type: String, 
@@ -57,8 +57,8 @@ const settingsSchema = new mongoose.Schema(
     // Billing Settings
     currency: { 
       type: String, 
-      default: 'USD',
-      enum: ['USD', 'EUR', 'GBP', 'JPY'],
+      default: 'PKR',
+      enum: ['PKR', 'USD', 'EUR', 'GBP', 'JPY'],
       trim: true 
     },
     paymentMethods: [{
@@ -110,8 +110,8 @@ settingsSchema.statics.getSettings = async function() {
   if (!settings) {
     // Create default settings if none exist
     settings = await this.create({
-      siteName: 'GymWear',
-      siteUrl: 'https://gymwear.example.com',
+      siteName: 'Silsila',
+      siteUrl: 'https://www.silsilla.pk',
       logoUrl: '/images/logo.png',
       timezone: 'UTC+05:00',
       dateFormat: 'MM/DD/YYYY',
@@ -119,7 +119,7 @@ settingsSchema.statics.getSettings = async function() {
       marketingEmails: false,
       securityAlerts: true,
       twoFactorAuth: false,
-      currency: 'USD',
+      currency: 'PKR',
       paymentMethods: ['credit_card', 'paypal'],
       youtubeUrl: '',
       facebookUrl: '',
