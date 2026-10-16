@@ -2,6 +2,7 @@ const stripe = require('../config/stripe');
 const Order = require('../models/order');
 const Product = require('../models/product');
 const Cart = require('../models/cartModel');
+const { storefrontOrigin } = require('../config/origins');
 
 // Store currency and shipping rules (kept in sync with the storefront's src/lib/formatPrice.ts).
 const CURRENCY = 'pkr';
@@ -28,35 +29,82 @@ function shippingRate(name, amount, minDays, maxDays) {
   };
 }
 
-class PaymentService {
-  async createCheckoutSession(userId, cartItems, shippingAddress, billingAddress) {
-    try {
-      const lineItems = await this.prepareLineItems(cartItems);
-      const subtotal = cartItems.reduce((sum, item) => sum + item.price * item.quantity, 0);
 
+// Stripe caps each metadata value at 500 characters, so long values are split across keys.
+function packMeta(prefix, value) {
+  const out = {};
+  for (let i = 0, n = 0; i < value.length; i += 490, n++) out[`${prefix}_${n}`] = value.slice(i, i + 490);
+  return out;
+}
+
+function unpackMeta(metadata, prefix) {
+  let value = '';
+  for (let n = 0; metadata[`${prefix}_${n}`] !== undefined; n++) value += metadata[`${prefix}_${n}`];
+  return value;
+}
+
+// Resolve cart lines against the database so prices, names and variant details are authoritative.
+async function priceCartLines(lines) {
+  const items = [];
+  for (const line of lines) {
+    const product = await Product.findById(line.productId);
+    if (!product || product.status !== 'published') continue;
+    const wanted = line.variantId;
+    const variant = wanted
+      ? (product.variants || []).find((v) => v.variantId === wanted || String(v._id) === wanted)
+      : null;
+    items.push({
+      product,
+      variantId: (variant && variant.variantId) || wanted || 'default',
+      sku: (variant && variant.sku) || line.sku || product.slug,
+      quantity: Math.max(1, parseInt(line.quantity, 10) || 1),
+      price: variant ? (variant.discountedPrice || variant.price) : (product.discountedPrice || product.price),
+      size: (variant && variant.size) || 'One Size',
+      color: (variant && variant.color) || 'Default',
+    });
+  }
+  return items;
+}
+
+class PaymentService {
+  async createCheckoutSession(userId, cartItems, shippingAddress, billingAddress, requestOrigin) {
+    const origin = storefrontOrigin(requestOrigin);
+    try {
+      const items = await priceCartLines(cartItems.map((item) => ({
+        productId: item.productId || (item.product && item.product._id) || item.product,
+        variantId: item.variantId,
+        sku: item.sku,
+        quantity: item.quantity,
+      })));
+      if (items.length === 0) throw new Error('None of the items in your cart are available');
+
+      const subtotal = items.reduce((sum, i) => sum + i.price * i.quantity, 0);
       const orderNumber = await Order.generateOrderNumber();
+      const cartCode = items.map((i) => `${i.product._id}~${i.variantId}~${i.quantity}`).join('|');
 
       const session = await stripe.checkout.sessions.create({
         payment_method_types: ['card'],
-        line_items: lineItems,
+        line_items: items.map((i) => ({
+          price_data: {
+            currency: CURRENCY,
+            product_data: {
+              name: i.product.name,
+              description: [i.color !== 'Default' && i.color, i.size !== 'One Size' && i.size].filter(Boolean).join(' / ') || undefined,
+              images: i.product.thumbnailUrl ? [i.product.thumbnailUrl] : [],
+            },
+            unit_amount: Math.round(i.price * 100),
+          },
+          quantity: i.quantity,
+        })),
         mode: 'payment',
-        success_url: `${process.env.FRONTEND_ORIGIN}/checkout/success?session_id={CHECKOUT_SESSION_ID}`,
-        cancel_url: `${process.env.FRONTEND_ORIGIN}/checkout/cancel`,
+        success_url: `${origin}/checkout/success?session_id={CHECKOUT_SESSION_ID}`,
+        cancel_url: `${origin}/checkout/payment`,
         customer_email: shippingAddress.email,
         metadata: {
           userId: userId ? userId.toString() : 'guest',
-          orderNumber: orderNumber,
-          shippingAddress: JSON.stringify(shippingAddress),
-          billingAddress: JSON.stringify(billingAddress),
-          cartItems: JSON.stringify(cartItems.map(item => ({
-            productId: item.productId || item.product._id || item.product,
-            variantId: item.variantId,
-            sku: item.sku,
-            quantity: item.quantity,
-            size: item.size,
-            color: item.color,
-            price: item.price
-          })))
+          orderNumber,
+          ...packMeta('cart', cartCode),
+          ...packMeta('ship', JSON.stringify(shippingAddress)),
         },
         shipping_options: [
           shippingRate(
@@ -65,7 +113,6 @@ class PaymentService {
           ),
           shippingRate('Express delivery', EXPRESS_SHIPPING_FEE, 1, 2),
         ],
-        allow_promotion_codes: true,
         billing_address_collection: 'auto',
         phone_number_collection: {
           enabled: true,
@@ -81,38 +128,6 @@ class PaymentService {
       console.error('Error creating checkout session:', error);
       throw new Error(`Failed to create checkout session: ${error.message}`);
     }
-  }
-
-  async prepareLineItems(cartItems) {
-    const lineItems = [];
-
-    for (const item of cartItems) {
-      const product = item.product.name ? item.product : await Product.findById(item.product);
-
-      if (!product) {
-        throw new Error(`Product not found: ${item.product}`);
-      }
-
-      lineItems.push({
-        price_data: {
-          currency: CURRENCY,
-          product_data: {
-            name: product.name,
-            description: `Size: ${item.size}, Color: ${item.color}`,
-            images: product.thumbnailUrl ? [product.thumbnailUrl] : (product.images && product.images.length > 0 ? [product.images[0]] : []),
-            metadata: {
-              productId: product._id.toString(),
-              size: item.size,
-              color: item.color
-            }
-          },
-          unit_amount: Math.round(item.price * 100),
-        },
-        quantity: item.quantity,
-      });
-    }
-
-    return lineItems;
   }
 
   async createPaymentIntent(amount, currency = CURRENCY, metadata = {}) {
@@ -231,76 +246,46 @@ class PaymentService {
     return { received: true };
   }
 
+  // Save the order for a paid Checkout Session. Called from the webhook and from the success
+  // page's verify call, so it must be idempotent: the first caller saves, later callers get the same order.
   async handleCheckoutSessionCompleted(session) {
+    const existing = await Order.findOne({ stripeSessionId: session.id });
+    if (existing) return existing;
+    if (session.payment_status !== 'paid') return null;
+
+    const metadata = session.metadata || {};
+    const userId = metadata.userId && metadata.userId !== 'guest' ? metadata.userId : null;
+    const lines = unpackMeta(metadata, 'cart').split('|').filter(Boolean).map((code) => {
+      const [productId, variantId, quantity] = code.split('~');
+      return { productId, variantId: variantId === 'default' ? undefined : variantId, quantity };
+    });
+    const items = await priceCartLines(lines);
+    const shippingAddress = JSON.parse(unpackMeta(metadata, 'ship') || '{}');
+
+    const shippingCost = session.shipping_cost ? session.shipping_cost.amount_total / 100 : 0;
+    const total = session.amount_total / 100;
     try {
-      const metadata = session.metadata;
-      const shippingAddress = JSON.parse(metadata.shippingAddress);
-      const billingAddress = JSON.parse(metadata.billingAddress);
-      const cartItems = JSON.parse(metadata.cartItems);
-      const userId = metadata.userId !== 'guest' ? metadata.userId : null;
-
-      console.log('💾 DATABASE SAVE DEBUG:');
-      console.log('- Metadata userId:', metadata.userId);
-      console.log('- Parsed userId:', userId);
-      console.log('- Will save to database as user:', userId);
-
-      const orderItems = [];
-      for (const item of cartItems) {
-        const product = await Product.findById(item.productId);
-        if (product) {
-          const orderItem = {
-            product: product._id,
-            variantId: item.variantId,
-            sku: item.sku,
-            quantity: item.quantity,
-            price: item.price,
-            size: item.size,
-            color: item.color
-          };
-          orderItems.push(orderItem);
-        }
-      }
-
-      const shippingCost = session.shipping_cost ? session.shipping_cost.amount_total / 100 : 0;
-      const subtotal = (session.amount_total / 100) - shippingCost;
-      const tax = 0;
-
-      const order = new Order({
+      const order = await Order.create({
         user: userId,
-        orderNumber: metadata.orderNumber,
-        items: orderItems,
-        shippingAddress: shippingAddress,
-        billingAddress: billingAddress,
+        orderNumber: metadata.orderNumber || await Order.generateOrderNumber(),
+        items: items.map(({ product, ...rest }) => ({ ...rest, product: product._id })),
+        shippingAddress,
+        billingAddress: shippingAddress,
         paymentMethod: 'stripe',
         paymentStatus: 'completed',
         orderStatus: 'processing',
         stripeSessionId: session.id,
         stripePaymentIntentId: session.payment_intent,
-        subtotal: subtotal,
-        shippingCost: shippingCost,
-        tax: tax,
-        total: session.amount_total / 100
+        subtotal: total - shippingCost,
+        shippingCost,
+        tax: 0,
+        total,
       });
-
-      console.log('💾 FINAL CHECK - Order user field before saving:', order.user);
-
-      await order.save();
-
-      console.log('✅ Order saved with user:', order.user);
-
-      if (userId) {
-        const cartUpdateResult = await Cart.findOneAndUpdate(
-          { userId: userId },
-          { $set: { items: [] } }
-        );
-        console.log(`Cart cleared for user ${userId}`, cartUpdateResult ? 'Success' : 'Cart not found');
-      } else {
-        console.log('Guest order - no cart to clear');
-      }
-
-      console.log(`Order ${order.orderNumber} created successfully for ${userId ? 'user ' + userId : 'guest'}`);
+      if (userId) await Cart.findOneAndUpdate({ userId }, { $set: { items: [] } });
+      return order;
     } catch (error) {
-      console.error('Error handling checkout session completion:', error);
+      // Webhook and success page raced; the other one already saved this order.
+      if (error.code === 11000) return Order.findOne({ stripeSessionId: session.id });
       throw error;
     }
   }

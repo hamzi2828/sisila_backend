@@ -72,15 +72,17 @@ class DashboardService {
 
   async getRecentOrders(limit) {
     const orders = await Order.find()
-      .populate('user', 'name email')
+      .populate('user', 'firstName lastName email')
       .sort({ createdAt: -1 })
       .limit(limit)
       .lean();
 
     return orders.map(order => ({
       id: order._id.toString(),
+      orderNumber: order.orderNumber,
       customerId: order.user?._id?.toString() || '',
-      customerName: order.user?.name || 'Guest',
+      customerName: [order.user?.firstName, order.user?.lastName].filter(Boolean).join(' ')
+        || order.shippingAddress?.fullName || 'Guest',
       amount: order.total,
       status: order.orderStatus || order.status,
       createdAt: order.createdAt

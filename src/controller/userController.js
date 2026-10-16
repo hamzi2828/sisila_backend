@@ -12,7 +12,6 @@ const userController = {
     createUser: async (req, res) => {
         try {
             const { firstName, lastName, email, password, confirmPassword } = req.body;
-            console.log("userData", req.body);
 
             // Basic validation
             if (!firstName || !lastName || !email || !password) {
@@ -333,10 +332,15 @@ const userController = {
                 return res.status(401).json({ message: 'Invalid or expired token' });
             }
             
-            const userData = req.body;
-            
-            // Prevent updating sensitive fields
-            const { password, ...safeUpdates } = userData;
+            // Customers may only edit their own profile details - never role, status, email or password.
+            const EDITABLE = ['firstName', 'lastName', 'phone', 'dateOfBirth', 'gender', 'avatarUrl'];
+            const safeUpdates = {};
+            for (const key of EDITABLE) {
+                if (req.body[key] !== undefined) safeUpdates[key] = req.body[key] === '' ? null : req.body[key];
+            }
+            if (safeUpdates.firstName === null || safeUpdates.lastName === null) {
+                return res.status(400).json({ message: 'First and last name are required' });
+            }
             
             const updatedUser = await User.findByIdAndUpdate(
                 currentUser.id,
@@ -396,10 +400,20 @@ const userController = {
             
             // Remove sensitive data from response
             const { password: _, ...userWithoutPassword } = user.toObject();
-            
+
+            const Order = require('../models/order');
+            const [orderStats] = await Order.aggregate([
+                { $match: { user: user._id, orderStatus: { $nin: ['cancelled', 'refunded'] } } },
+                { $group: { _id: null, totalOrders: { $sum: 1 }, totalSpent: { $sum: '$total' } } },
+            ]);
+
             res.status(200).json({ 
                 message: 'User details retrieved successfully', 
-                data: userWithoutPassword 
+                data: {
+                    ...userWithoutPassword,
+                    totalOrders: orderStats ? orderStats.totalOrders : 0,
+                    totalSpent: orderStats ? orderStats.totalSpent : 0,
+                }
             });
         } catch (error) {
             console.error('Get user details error:', error);

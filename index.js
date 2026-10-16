@@ -9,10 +9,10 @@ const allRoutes = require('./src/routes/allRoutes');
 
 const dashboardRoutes = require('./src/routes/dashboardRoutes');
 
-// CORS: allow frontend to access backend
-const FRONTEND_ORIGIN = process.env.FRONTEND_ORIGIN || 'http://localhost:3000';
+// CORS: allow the storefront domains to access the backend
+const { ALLOWED_ORIGINS } = require('./src/config/origins');
 app.use(cors({
-  origin: [FRONTEND_ORIGIN, 'http://localhost:3000', 'https://gymwear-frontend.vercel.app', 'http://localhost:3001', 'https://silsilla.pk', 'https://www.silsilla.pk'],
+  origin: ALLOWED_ORIGINS,
   credentials: true,
 }));
 

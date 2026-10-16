@@ -36,7 +36,8 @@ const paymentController = {
         userId,
         cartItems,
         shippingAddress,
-        billingAddress || shippingAddress
+        billingAddress || shippingAddress,
+        req.headers.origin
       );
 
       res.status(200).json({
@@ -180,8 +181,15 @@ const paymentController = {
 
       const session = await paymentService.getCheckoutSession(sessionId);
 
+      const requester = String(req.user._id || req.user.id);
+      if (session.metadata && session.metadata.userId && session.metadata.userId !== requester) {
+        return res.status(403).json({ success: false, message: 'This payment belongs to another account' });
+      }
+
       if (session.payment_status === 'paid') {
-        const order = await Order.findOne({ stripeSessionId: sessionId });
+        // Saves the order if the Stripe webhook hasn't already.
+        const order = await paymentService.handleCheckoutSessionCompleted(session);
+        if (order) await order.populate('items.product', 'name thumbnailUrl bannerUrls');
 
         res.status(200).json({
           success: true,

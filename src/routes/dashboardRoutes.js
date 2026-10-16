@@ -2,8 +2,9 @@ const express = require('express');
 const router = express.Router();
 const dashboardController = require('../controller/dashboardController');
 const auth = require('../middleware/auth');
+const requireAdmin = require('../middleware/requireAdmin');
 
-router.use(auth);
+router.use(auth, requireAdmin);
 
 router.get('/', dashboardController.getDashboardData);
 

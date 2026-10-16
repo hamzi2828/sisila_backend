@@ -4,6 +4,9 @@ const express = require('express');
 const router = express.Router();
 const userController = require('../controller/userController');
 const auth = require('../middleware/auth');
+const requireAdmin = require('../middleware/requireAdmin');
+// Admin-only routes: signed in AND role === 'admin' (checked against the database).
+const adminAuth = [auth, requireAdmin];
 const categoryController = require('../controller/categoryController');
 const colorController = require('../controller/colorController');
 const sizeController = require('../controller/sizeController');
@@ -27,52 +30,52 @@ router.post('/user/google-login', userController.googleLoginUser);
 router.put('/update/user', auth, userController.updateUser);
 router.delete('/user', auth, userController.deleteUser);
 router.get('/userDetailForProfile', auth, userController.getUserDetailForProfile);
-router.get('/get/allUsers', auth, userController.getAllUsers);
+router.get('/get/allUsers', adminAuth, userController.getAllUsers);
 
 // Google OAuth 2.0 redirect flow
 router.get('/auth/google', userController.startGoogleOAuth);
 router.get('/auth/google/callback', userController.googleOAuthCallback);
 
 // Admin operations by ID
-router.put('/update/status/:id', auth, userController.updateUserStatusById);
-router.put('/update/role/:id', auth, userController.updateUserRoleById);
-router.delete('/delete/:id', auth, userController.deleteUserById);
+router.put('/update/status/:id', adminAuth, userController.updateUserStatusById);
+router.put('/update/role/:id', adminAuth, userController.updateUserRoleById);
+router.delete('/delete/:id', adminAuth, userController.deleteUserById);
 
 // Category routes
 router.get('/categories/featured-with-products', categoryController.listFeaturedCategoriesWithProducts);
 router.get('/categories/public', categoryController.listCategories); // Public route for popular categories
 router.get('/categories', categoryController.listCategories);
-router.post('/categories', auth, uploadFields([
+router.post('/categories', adminAuth, uploadFields([
   { name: 'thumbnail', maxCount: 1 },
   { name: 'banner', maxCount: 1 }
 ]), categoryController.createCategory);
-router.put('/categories/:id', auth, uploadFields([
+router.put('/categories/:id', adminAuth, uploadFields([
   { name: 'thumbnail', maxCount: 1 },
   { name: 'banner', maxCount: 1 }
 ]), categoryController.updateCategory);
-router.delete('/categories/:id', auth, categoryController.deleteCategory);
+router.delete('/categories/:id', adminAuth, categoryController.deleteCategory);
 
 // Color routes
-router.get('/colors', auth, colorController.listColors);
-router.post('/colors', auth, colorController.createColor);
-router.put('/colors/:id', auth, colorController.updateColor);
-router.delete('/colors/:id', auth, colorController.deleteColor);
+router.get('/colors', adminAuth, colorController.listColors);
+router.post('/colors', adminAuth, colorController.createColor);
+router.put('/colors/:id', adminAuth, colorController.updateColor);
+router.delete('/colors/:id', adminAuth, colorController.deleteColor);
 
 // Size routes
-router.get('/sizes', auth, sizeController.listSizes);
-router.post('/sizes', auth, sizeController.createSize);
-router.put('/sizes/:id', auth, sizeController.updateSize);
-router.delete('/sizes/:id', auth, sizeController.deleteSize);
+router.get('/sizes', adminAuth, sizeController.listSizes);
+router.post('/sizes', adminAuth, sizeController.createSize);
+router.put('/sizes/:id', adminAuth, sizeController.updateSize);
+router.delete('/sizes/:id', adminAuth, sizeController.deleteSize);
 
 // Product routes
 router.get('/products/random', productController.getRandomProducts); // Public route for random products
 router.get('/products/latest', productController.getLatestProducts); // Public route for latest products
 router.get('/products', productController.listProducts);
-router.get('/products/:id', auth, productController.getProductById);
+router.get('/products/:id', adminAuth, productController.getProductById);
 // Accept multipart form-data with fields: thumbnail (1), banners (up to 10), colorThumbnail (multiple), colorBanner (multiple)
 router.post(
   '/products',
-  auth,
+  adminAuth,
   uploadFields([
     { name: 'thumbnail', maxCount: 1 },
     { name: 'banners', maxCount: 10 },
@@ -81,30 +84,30 @@ router.post(
   ]),
   productController.createProduct
 );
-router.put('/products/:id', auth, uploadFields([
+router.put('/products/:id', adminAuth, uploadFields([
     { name: 'thumbnail', maxCount: 1 },
     { name: 'banners', maxCount: 10 },
     { name: 'colorThumbnail', maxCount: 10 }, // Allow multiple color thumbnails
     { name: 'colorBanner', maxCount: 20 },    // Allow multiple color banners
   ]), productController.updateProduct);
   
-router.delete('/products/:id', auth, productController.deleteProduct);
+router.delete('/products/:id', adminAuth, productController.deleteProduct);
 
 // Blog Category routes
 router.get('/blog-categories', blogCategoryController.getAllCategories);
 router.get('/blog-categories/with-count', blogCategoryController.getCategoriesWithCount);
 router.get('/blog-categories/:id', blogCategoryController.getCategoryById);
-router.post('/blog-categories', auth, uploadFields([
+router.post('/blog-categories', adminAuth, uploadFields([
   { name: 'thumbnail', maxCount: 1 },
   { name: 'banner', maxCount: 1 }
 ]), blogCategoryController.createCategory);
-router.put('/blog-categories/:id', auth, uploadFields([
+router.put('/blog-categories/:id', adminAuth, uploadFields([
   { name: 'thumbnail', maxCount: 1 },
   { name: 'banner', maxCount: 1 }
 ]), blogCategoryController.updateCategory);
-router.patch('/blog-categories/:id/toggle-active', auth, blogCategoryController.toggleCategoryActive);
-router.patch('/blog-categories/:id/toggle-featured', auth, blogCategoryController.toggleCategoryFeatured);
-router.delete('/blog-categories/:id', auth, blogCategoryController.deleteCategory);
+router.patch('/blog-categories/:id/toggle-active', adminAuth, blogCategoryController.toggleCategoryActive);
+router.patch('/blog-categories/:id/toggle-featured', adminAuth, blogCategoryController.toggleCategoryFeatured);
+router.delete('/blog-categories/:id', adminAuth, blogCategoryController.deleteCategory);
 
 // Blog routes
 router.get('/blogs', blogController.getAllBlogs);
@@ -114,7 +117,7 @@ router.get('/blogs/slug/:slug', blogController.getBlogBySlug);
 router.get('/blogs/:id', blogController.getBlogById);
 router.post(
   '/blogs',
-  auth,
+  adminAuth,
   uploadFields([
     { name: 'image', maxCount: 1 },      // Cover image (required)
     { name: 'thumbnail', maxCount: 1 }   // Thumbnail (optional)
@@ -123,54 +126,54 @@ router.post(
 );
 router.put(
   '/blogs/:id',
-  auth,
+  adminAuth,
   uploadFields([
     { name: 'image', maxCount: 1 },
     { name: 'thumbnail', maxCount: 1 }
   ]),
   blogController.updateBlog
 );
-router.delete('/blogs/:id', auth, blogController.deleteBlog);
+router.delete('/blogs/:id', adminAuth, blogController.deleteBlog);
 router.patch('/blogs/:id/views', blogController.incrementViews);
-router.patch('/blogs/:id/featured', auth, blogController.toggleFeatured);
-router.patch('/blogs/:id/status', auth, blogController.toggleStatus);
+router.patch('/blogs/:id/featured', adminAuth, blogController.toggleFeatured);
+router.patch('/blogs/:id/status', adminAuth, blogController.toggleStatus);
 router.get('/categories/:categoryId/blogs', blogController.getBlogsByCategory);
 
 // Author routes
 router.get('/authors', authorController.getAllAuthors);
 router.get('/authors/dropdown', authorController.getAuthorsForDropdown);
 router.get('/authors/:id', authorController.getAuthorById);
-router.post('/authors', auth, uploadFields([{ name: 'avatar', maxCount: 1 }]), authorController.createAuthor);
-router.put('/authors/:id', auth, uploadFields([{ name: 'avatar', maxCount: 1 }]), authorController.updateAuthor);
-router.patch('/authors/:id/toggle-active', auth, authorController.toggleAuthorActive);
-router.delete('/authors/:id', auth, authorController.deleteAuthor);
+router.post('/authors', adminAuth, uploadFields([{ name: 'avatar', maxCount: 1 }]), authorController.createAuthor);
+router.put('/authors/:id', adminAuth, uploadFields([{ name: 'avatar', maxCount: 1 }]), authorController.updateAuthor);
+router.patch('/authors/:id/toggle-active', adminAuth, authorController.toggleAuthorActive);
+router.delete('/authors/:id', adminAuth, authorController.deleteAuthor);
 
 // Blog Hero routes
 router.get('/blog-hero/active', blogHeroController.getActiveHero); // Public route
-router.get('/blog-hero', auth, blogHeroController.getAllHeroes);
-router.get('/blog-hero/:id', auth, blogHeroController.getHeroById);
-router.post('/blog-hero', auth, heroUploadFields([{ name: 'backgroundImage', maxCount: 1 }]), blogHeroController.createHero);
-router.put('/blog-hero/:id', auth, heroUploadFields([{ name: 'backgroundImage', maxCount: 1 }]), blogHeroController.updateHero);
-router.delete('/blog-hero/:id', auth, blogHeroController.deleteHero);
-router.patch('/blog-hero/:id/toggle-active', auth, blogHeroController.toggleActiveStatus);
-router.post('/blog-hero/upload-image', auth, heroUploadFields([{ name: 'image', maxCount: 1 }]), blogHeroController.uploadImage);
+router.get('/blog-hero', adminAuth, blogHeroController.getAllHeroes);
+router.get('/blog-hero/:id', adminAuth, blogHeroController.getHeroById);
+router.post('/blog-hero', adminAuth, heroUploadFields([{ name: 'backgroundImage', maxCount: 1 }]), blogHeroController.createHero);
+router.put('/blog-hero/:id', adminAuth, heroUploadFields([{ name: 'backgroundImage', maxCount: 1 }]), blogHeroController.updateHero);
+router.delete('/blog-hero/:id', adminAuth, blogHeroController.deleteHero);
+router.patch('/blog-hero/:id/toggle-active', adminAuth, blogHeroController.toggleActiveStatus);
+router.post('/blog-hero/upload-image', adminAuth, heroUploadFields([{ name: 'image', maxCount: 1 }]), blogHeroController.uploadImage);
 
 // Settings routes
-router.get('/settings', auth, settingsController.getSettings);
-router.put('/settings', auth, settingsController.updateSettings);
-router.post('/settings/logo', auth, uploadFields([{ name: 'logo', maxCount: 1 }]), settingsController.uploadLogo);
-router.delete('/settings/logo', auth, settingsController.removeLogo);
-router.post('/settings/reset', auth, settingsController.resetSettings);
+router.get('/settings', adminAuth, settingsController.getSettings);
+router.put('/settings', adminAuth, settingsController.updateSettings);
+router.post('/settings/logo', adminAuth, uploadFields([{ name: 'logo', maxCount: 1 }]), settingsController.uploadLogo);
+router.delete('/settings/logo', adminAuth, settingsController.removeLogo);
+router.post('/settings/reset', adminAuth, settingsController.resetSettings);
 
 // Hero Slide routes
 router.get('/hero-slides/active', heroSlideController.getActiveSlides); // Public route
-router.get('/hero-slides', auth, heroSlideController.getAllSlides);
-router.get('/hero-slides/:id', auth, heroSlideController.getSlideById);
-router.post('/hero-slides', auth, uploadSingle('image'), heroSlideController.createSlide);
-router.put('/hero-slides/:id', auth, uploadSingle('image'), heroSlideController.updateSlide);
-router.patch('/hero-slides/:id/status', auth, heroSlideController.toggleSlideStatus);
-router.patch('/hero-slides/:id/order', auth, heroSlideController.updateSlideOrder);
-router.delete('/hero-slides/:id', auth, heroSlideController.deleteSlide);
+router.get('/hero-slides', adminAuth, heroSlideController.getAllSlides);
+router.get('/hero-slides/:id', adminAuth, heroSlideController.getSlideById);
+router.post('/hero-slides', adminAuth, uploadSingle('image'), heroSlideController.createSlide);
+router.put('/hero-slides/:id', adminAuth, uploadSingle('image'), heroSlideController.updateSlide);
+router.patch('/hero-slides/:id/status', adminAuth, heroSlideController.toggleSlideStatus);
+router.patch('/hero-slides/:id/order', adminAuth, heroSlideController.updateSlideOrder);
+router.delete('/hero-slides/:id', adminAuth, heroSlideController.deleteSlide);
 
 // Product Detail routes (Public - No authentication required)
 router.get('/product-detail/:idOrSlug', productDetailController.getProductDetail);
@@ -208,9 +211,9 @@ router.get('/api/payment/verify/:sessionId', auth, paymentController.verifyPayme
 router.get('/api/payment/stripe-public-key', paymentController.getPublicKey);
 router.get('/api/payment/orders', auth, paymentController.getOrders);
 router.get('/api/payment/orders/:orderId', auth, paymentController.getOrderById);
-router.get('/api/payment/getAllOrders', auth, paymentController.getAllOrders);
-router.put('/api/payment/orders/:orderId/status', auth, paymentController.updateOrderStatus);
-router.post('/api/payment/orders/:orderId/refund', auth, paymentController.refundOrder);
+router.get('/api/payment/getAllOrders', adminAuth, paymentController.getAllOrders);
+router.put('/api/payment/orders/:orderId/status', adminAuth, paymentController.updateOrderStatus);
+router.post('/api/payment/orders/:orderId/refund', adminAuth, paymentController.refundOrder);
 
 const publicProductController = require('../controller/publicProductController');
 const newsletterController = require('../controller/newsletterController');
@@ -227,41 +230,41 @@ router.get('/api/public/products/:id', publicProductController.getProductById);
 // Newsletter routes
 router.post('/api/newsletter/subscribe', newsletterController.subscribe);
 router.post('/api/newsletter/unsubscribe', newsletterController.unsubscribe);
-router.get('/api/newsletter/stats', auth, newsletterController.getStats);
-router.get('/api/newsletter/subscribers', auth, newsletterController.getAllSubscribers);
+router.get('/api/newsletter/stats', adminAuth, newsletterController.getStats);
+router.get('/api/newsletter/subscribers', adminAuth, newsletterController.getAllSubscribers);
 
 // Contact routes
 router.post('/api/contact/submit', contactController.submitContact); // Public route
-router.get('/api/contact', auth, contactController.getAllContacts); // Admin only
-router.get('/api/contact/stats', auth, contactController.getContactStats); // Admin only
-router.get('/api/contact/:id', auth, contactController.getContactById); // Admin only
-router.put('/api/contact/:id/status', auth, contactController.updateContactStatus); // Admin only
-router.put('/api/contact/:id/priority', auth, contactController.updateContactPriority); // Admin only
-router.post('/api/contact/:id/note', auth, contactController.addAdminNote); // Admin only
-router.put('/api/contact/:id/assign', auth, contactController.assignContact); // Admin only
-router.put('/api/contact/:id/response-sent', auth, contactController.markResponseSent); // Admin only
-router.delete('/api/contact/:id', auth, contactController.deleteContact); // Admin only
+router.get('/api/contact', adminAuth, contactController.getAllContacts); // Admin only
+router.get('/api/contact/stats', adminAuth, contactController.getContactStats); // Admin only
+router.get('/api/contact/:id', adminAuth, contactController.getContactById); // Admin only
+router.put('/api/contact/:id/status', adminAuth, contactController.updateContactStatus); // Admin only
+router.put('/api/contact/:id/priority', adminAuth, contactController.updateContactPriority); // Admin only
+router.post('/api/contact/:id/note', adminAuth, contactController.addAdminNote); // Admin only
+router.put('/api/contact/:id/assign', adminAuth, contactController.assignContact); // Admin only
+router.put('/api/contact/:id/response-sent', adminAuth, contactController.markResponseSent); // Admin only
+router.delete('/api/contact/:id', adminAuth, contactController.deleteContact); // Admin only
 
 // Theme routes
 const themeController = require('../controller/themeController');
 router.get('/themes/active', themeController.getActiveThemes); // Public route
-router.get('/themes', auth, themeController.getAllThemes); // Admin only
-router.get('/themes/:id', auth, themeController.getThemeById); // Admin only
-router.post('/themes', auth, themeController.createTheme); // Admin only
-router.put('/themes/:id', auth, themeController.updateTheme); // Admin only
-router.patch('/themes/:id/status', auth, themeController.toggleThemeStatus); // Admin only
-router.patch('/themes/:id/order', auth, themeController.updateThemeOrder); // Admin only
-router.delete('/themes/:id', auth, themeController.deleteTheme); // Admin only
+router.get('/themes', adminAuth, themeController.getAllThemes); // Admin only
+router.get('/themes/:id', adminAuth, themeController.getThemeById); // Admin only
+router.post('/themes', adminAuth, themeController.createTheme); // Admin only
+router.put('/themes/:id', adminAuth, themeController.updateTheme); // Admin only
+router.patch('/themes/:id/status', adminAuth, themeController.toggleThemeStatus); // Admin only
+router.patch('/themes/:id/order', adminAuth, themeController.updateThemeOrder); // Admin only
+router.delete('/themes/:id', adminAuth, themeController.deleteTheme); // Admin only
 
 // Series routes
 const seriesController = require('../controller/seriesController');
 router.get('/series/active', seriesController.getActiveSeries); // Public route
-router.get('/series', auth, seriesController.getAllSeries); // Admin only
-router.get('/series/:id', auth, seriesController.getSeriesById); // Admin only
-router.post('/series', auth, seriesController.createSeries); // Admin only
-router.put('/series/:id', auth, seriesController.updateSeries); // Admin only
-router.patch('/series/:id/status', auth, seriesController.toggleSeriesStatus); // Admin only
-router.patch('/series/:id/order', auth, seriesController.updateSeriesOrder); // Admin only
-router.delete('/series/:id', auth, seriesController.deleteSeries); // Admin only
+router.get('/series', adminAuth, seriesController.getAllSeries); // Admin only
+router.get('/series/:id', adminAuth, seriesController.getSeriesById); // Admin only
+router.post('/series', adminAuth, seriesController.createSeries); // Admin only
+router.put('/series/:id', adminAuth, seriesController.updateSeries); // Admin only
+router.patch('/series/:id/status', adminAuth, seriesController.toggleSeriesStatus); // Admin only
+router.patch('/series/:id/order', adminAuth, seriesController.updateSeriesOrder); // Admin only
+router.delete('/series/:id', adminAuth, seriesController.deleteSeries); // Admin only
 
 module.exports = router;
