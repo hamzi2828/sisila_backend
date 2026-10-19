@@ -25,7 +25,12 @@ const storage = multer.memoryStorage();
 
 const fileFilter = (req, file, cb) => {
   if (ALLOWED_IMAGE_MIME_TYPES.has(file.mimetype)) return cb(null, true);
-  cb(new Error('Only image files are allowed'));
+  const err = new Error(
+    `"${file.originalname || 'File'}" is not a supported image. Only JPG, PNG, WebP, GIF or SVG images are allowed.`
+  );
+  err.code = 'INVALID_FILE_TYPE';
+  err.status = 415;
+  cb(err);
 };
 
 const upload = multer({ storage, fileFilter, limits: { fileSize: MAX_FILE_BYTES } });
@@ -78,53 +83,65 @@ async function deleteFromBlob(url) {
  * Middleware to upload files to Vercel Blob after multer processes them
  * Transforms req.file and req.files to include blob URLs
  */
-function uploadToVercelBlob(req, res, next) {
+function uploadToVercelBlob(req, res, next, maxFileMb = MAX_FILE_MB) {
   return async (err) => {
-    if (err) return next(err);
-
-    try {
-      // Handle single file upload (req.file)
-      if (req.file && req.file.buffer) {
-        const url = await uploadToBlob(req.file.buffer, req.file.originalname, req.file.mimetype);
-        req.file.blobUrl = url;
-        req.file.filename = url; // Replace filename with full URL for backward compatibility
-      }
-
-      // Handle multiple files upload (req.files)
-      if (req.files) {
-        // req.files can be an array or an object with field names as keys
-        if (Array.isArray(req.files)) {
-          // Array of files
-          for (const file of req.files) {
-            if (file.buffer) {
-              const url = await uploadToBlob(file.buffer, file.originalname, file.mimetype);
-              file.blobUrl = url;
-              file.filename = url;
-            }
-          }
-        } else {
-          // Object with field names as keys
-          for (const fieldName of Object.keys(req.files)) {
-            const filesArray = req.files[fieldName];
-            if (Array.isArray(filesArray)) {
-              for (const file of filesArray) {
-                if (file.buffer) {
-                  const url = await uploadToBlob(file.buffer, file.originalname, file.mimetype);
-                  file.blobUrl = url;
-                  file.filename = url;
-                }
-              }
-            }
-          }
-        }
-      }
-
-      next();
-    } catch (error) {
-      console.error('Error uploading to Vercel Blob:', error);
-      next(error);
+    if (err) {
+      // Tell the global error handler which limit applied (hero uploads allow more than the default)
+      if (err.code === 'LIMIT_FILE_SIZE') err.maxFileMb = maxFileMb;
+      return next(err);
     }
+
+    // Collect every uploaded file (req.file, req.files as array, or req.files keyed by field)
+    const pending = [];
+    if (req.file && req.file.buffer) pending.push(req.file);
+    if (Array.isArray(req.files)) {
+      pending.push(...req.files.filter((f) => f && f.buffer));
+    } else if (req.files && typeof req.files === 'object') {
+      for (const filesArray of Object.values(req.files)) {
+        if (Array.isArray(filesArray)) pending.push(...filesArray.filter((f) => f && f.buffer));
+      }
+    }
+
+    // Upload in parallel so several images fit inside the serverless time limit
+    const results = await Promise.allSettled(
+      pending.map(async (file) => {
+        const url = await uploadToBlob(file.buffer, file.originalname, file.mimetype);
+        file.blobUrl = url;
+        file.filename = url; // Replace filename with full URL for backward compatibility
+        file.buffer = undefined; // Free memory once stored
+      })
+    );
+
+    const failedIndex = results.findIndex((r) => r.status === 'rejected');
+    if (failedIndex === -1) return next();
+
+    // Do not leave half of the images behind when one of them failed
+    await cleanupUploadedFiles(pending);
+    const cause = results[failedIndex].reason;
+    console.error('Error uploading to Vercel Blob:', cause);
+    const error = new Error(
+      `Could not save image "${pending[failedIndex].originalname || 'file'}" to storage. Please try again.`
+    );
+    error.code = 'BLOB_UPLOAD_FAILED';
+    error.status = 502;
+    error.cause = cause;
+    return next(error);
   };
+}
+
+/**
+ * Delete files that were already stored in Vercel Blob for a request that then failed
+ * (e.g. product validation error), so failed saves do not leave orphaned images.
+ * @param {Object|Array} files - req.file, req.files (array or object keyed by field name)
+ */
+async function cleanupUploadedFiles(files) {
+  if (!files) return;
+  let list = [];
+  if (Array.isArray(files)) list = files;
+  else if (files.blobUrl) list = [files];
+  else if (typeof files === 'object') list = Object.values(files).flat();
+  const urls = list.map((f) => f && f.blobUrl).filter(Boolean);
+  await Promise.all(urls.map((url) => deleteFromBlob(url)));
 }
 
 /**
@@ -164,7 +181,7 @@ function uploadFields(fields) {
  */
 function heroUploadFields(fields) {
   return (req, res, next) => {
-    heroUpload.fields(fields)(req, res, uploadToVercelBlob(req, res, next));
+    heroUpload.fields(fields)(req, res, uploadToVercelBlob(req, res, next, MAX_HERO_FILE_MB));
   };
 }
 
@@ -174,7 +191,7 @@ function heroUploadFields(fields) {
  */
 function heroUploadSingle(fieldName) {
   return (req, res, next) => {
-    heroUpload.single(fieldName)(req, res, uploadToVercelBlob(req, res, next));
+    heroUpload.single(fieldName)(req, res, uploadToVercelBlob(req, res, next, MAX_HERO_FILE_MB));
   };
 }
 
@@ -205,6 +222,8 @@ module.exports = {
   heroUploadFields,
   uploadToBlob,
   deleteFromBlob,
+  cleanupUploadedFiles,
   toPublicPath,
   ALLOWED_IMAGE_MIME_TYPES,
+  MAX_FILE_MB,
 };

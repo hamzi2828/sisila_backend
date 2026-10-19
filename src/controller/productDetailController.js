@@ -29,6 +29,13 @@ const getProductDetail = async (req, res) => {
       });
     }
     
+    // The schema stores quantity in `stock` (there is no stockQuantity/inStock field).
+    // Variant products are sold per variant, so their quantity is the sum of the variants' stock.
+    const variantList = Array.isArray(product.variants) ? product.variants : [];
+    const stockQuantity = product.productType === 'variant' && variantList.length > 0
+      ? variantList.reduce((sum, v) => sum + (Number(v.stock) || 0), 0)
+      : Number(product.stock) || 0;
+
     // Transform the product data for frontend consumption
     const transformedProduct = {
       _id: product._id,
@@ -49,8 +56,8 @@ const getProductDetail = async (req, res) => {
       features: product.features || [],
       specifications: product.specifications || {},
       status: product.status,
-      inStock: product.inStock,
-      stockQuantity: product.stockQuantity || 0,
+      inStock: stockQuantity > 0,
+      stockQuantity,
       weight: product.weight,
       dimensions: product.dimensions,
       seoTitle: product.seoTitle,

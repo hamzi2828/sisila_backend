@@ -1,8 +1,41 @@
 // src/controller/productController.js
 const Product = require('../models/product');
-const { toPublicPath } = require('../helper/upload');
-const { processColorMedia } = require('../helper/colorMediaHelper');
+const { cleanupUploadedFiles } = require('../helper/upload');
+const createProductService = require('../services/products/createProductService');
+const updateProductService = require('../services/products/updateProductService');
 
+/**
+ * Send a JSON error whose `message` is the real reason (shown as-is in the admin UI).
+ * Validation problems -> 400, duplicate slug -> 409, missing product -> 404, anything else -> 500.
+ */
+function sendProductError(res, error, action) {
+  if (error && error.code === 11000) {
+    const field = Object.keys(error.keyPattern || error.keyValue || {})[0] || 'slug';
+    const message = field === 'slug'
+      ? 'A product with this name/slug already exists. Please use a different product name.'
+      : `A product with this ${field} already exists.`;
+    return res.status(409).json({ message, error: 'Duplicate key' });
+  }
+  if (error && error.name === 'ValidationError') {
+    const message = Object.values(error.errors || {})
+      .map((e) => (e.kind === 'enum' && e.properties && Array.isArray(e.properties.enumValues)
+        ? `Invalid ${e.path} "${e.value}". Allowed values: ${e.properties.enumValues.join(', ')}`
+        : e.message))
+      .join('. ') || error.message;
+    return res.status(400).json({ message, error: 'Validation failed' });
+  }
+  if (error && error.name === 'CastError') {
+    return res.status(400).json({ message: `Invalid value for ${error.path}: ${JSON.stringify(error.value)}`, error: 'Invalid value' });
+  }
+  if (error && Number.isInteger(error.status) && error.status >= 400 && error.status < 500) {
+    return res.status(error.status).json({ message: error.message, error: 'Invalid request' });
+  }
+  console.error(`${action} product error:`, error);
+  return res.status(500).json({
+    message: `Could not ${action} the product because of a server error: ${error && error.message ? error.message : 'unknown error'}`,
+    error: 'Internal server error',
+  });
+}
 
 
 const productController = {
@@ -84,57 +117,37 @@ const productController = {
 
   // POST /products - create a new product
   createProduct: async (req, res) => {
+    const files = req.files || {};
     try {
       const payload = req.body || {};
-      const files = req.files || {};
-
-      console.log('createProduct files:', files);
-      console.log('createProduct body:', payload);
-      
-      // Use the createProductService to handle the creation logic
-      const createProductService = require('../services/products/createProductService');
       const created = await createProductService.createProduct(payload, files);
-      
-      return res.status(201).json({ 
-        message: 'Product created successfully', 
-        data: created 
+
+      return res.status(201).json({
+        message: 'Product created successfully',
+        data: created
       });
     } catch (error) {
-      if (error && error.code === 11000) {
-        return res.status(409).json({ message: 'Slug already exists' });
-      }
-      console.error('Create product error:', error);
-      return res.status(400).json({ message: 'Error creating product', error: error.message });
+      // The images were already stored before validation ran; remove them so failed saves leave no orphans
+      await cleanupUploadedFiles(files);
+      return sendProductError(res, error, 'create');
     }
   },
 
   // PUT /products/:id - update a product
   updateProduct: async (req, res) => {
+    const files = req.files || {};
     try {
       const { id } = req.params;
       const payload = req.body || {};
-      const files = req.files || {};
-      
-      console.log('Update product payload:', payload);
-      console.log('Update product files:', files);
-      // Use the updateProductService to handle the update logic
-      const updateProductService = require('../services/products/updateProductService');
       const updated = await updateProductService.updateProduct(id, payload, files);
-      
-      return res.status(200).json({ 
-        message: 'Product updated successfully', 
-        data: updated 
+
+      return res.status(200).json({
+        message: 'Product updated successfully',
+        data: updated
       });
-      
     } catch (error) {
-      if (error && error.code === 11000) {
-        return res.status(409).json({ message: 'Slug already exists' });
-      }
-      console.error('Update product error:', error);
-      return res.status(400).json({ 
-        message: 'Error updating product', 
-        error: error.message 
-      });
+      await cleanupUploadedFiles(files);
+      return sendProductError(res, error, 'update');
     }
   },
 

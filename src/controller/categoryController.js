@@ -1,5 +1,6 @@
 // src/controller/categoryController.js
 const Category = require('../models/category');
+const { toBoolean } = require('../helper/helper');
 
 const categoryController = {
   // GET /categories - list all categories
@@ -61,8 +62,9 @@ const categoryController = {
       name = String(name).trim();
       slug = String(slug).trim().toLowerCase();
       description = String(description || '').trim();
-      active = Boolean(active);
-      featured = Boolean(featured);
+      // Multipart (when images are attached) sends booleans as strings; Boolean('false') would be true
+      active = toBoolean(active, true);
+      featured = toBoolean(featured, false);
 
       // Handle file uploads (filename now contains full Vercel Blob URL)
       const thumbnailFile = req.files?.thumbnail?.[0];
@@ -99,8 +101,8 @@ const categoryController = {
       if (typeof payload.name !== 'undefined') updates.name = String(payload.name).trim();
       if (typeof payload.slug !== 'undefined') updates.slug = String(payload.slug).trim().toLowerCase();
       if (typeof payload.description !== 'undefined') updates.description = String(payload.description || '').trim();
-      if (typeof payload.active !== 'undefined') updates.active = Boolean(payload.active);
-      if (typeof payload.featured !== 'undefined') updates.featured = Boolean(payload.featured);
+      if (typeof payload.active !== 'undefined') updates.active = toBoolean(payload.active, true);
+      if (typeof payload.featured !== 'undefined') updates.featured = toBoolean(payload.featured, false);
 
       // Handle file uploads (filename now contains full Vercel Blob URL)
       const thumbnailFile = req.files?.thumbnail?.[0];

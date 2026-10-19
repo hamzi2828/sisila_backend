@@ -1,7 +1,23 @@
 // updateProductService.js
-const path = require('path');
 const crypto = require('crypto');
-const Product = require(path.resolve(__dirname, '../../models/Product'));
+const Product = require('../../models/product');
+
+// Validation error that the controller returns with this status and exact message
+const httpError = (status, message) => {
+  const err = new Error(message);
+  err.status = status;
+  return err;
+};
+
+// Older admin builds sent absolute image URLs with a leading slash ("/https://..."), which broke the image
+const normalizeImageUrl = (url) => {
+  if (typeof url !== 'string') return url;
+  const trimmed = url.trim();
+  return /^\/+https?:\/\//i.test(trimmed) ? trimmed.replace(/^\/+/, '') : trimmed;
+};
+
+// '' / 'null' / 'undefined' from multipart means "clear this value"
+const isEmptyFormValue = (value) => value === null || value === '' || value === 'null' || value === 'undefined';
 
 // Helper function to get public path from filename
 // Now filename already contains full Vercel Blob URL
@@ -121,7 +137,7 @@ const updateProductService = {
             if (!colorMedia[parsed.color]) colorMedia[parsed.color] = { bannerUrls: [] };
             // Only set if we don't have a new thumbnail for this color
             if (!colorMedia[parsed.color].thumbnailUrl) {
-              colorMedia[parsed.color].thumbnailUrl = parsed.url;
+              colorMedia[parsed.color].thumbnailUrl = normalizeImageUrl(parsed.url);
             }
           }
         } catch (e) {
@@ -141,7 +157,7 @@ const updateProductService = {
           if (parsed.color && parsed.urls) {
             if (!colorMedia[parsed.color]) colorMedia[parsed.color] = { bannerUrls: [] };
             // Merge existing banners with any new ones (put existing first)
-            const existingBanners = parsed.urls || [];
+            const existingBanners = (parsed.urls || []).map(normalizeImageUrl);
             const newBanners = colorMedia[parsed.color].bannerUrls || [];
             // Filter out existing URLs to avoid duplicates
             const existingUrls = existingBanners.filter(url => !newBanners.includes(url));
@@ -159,11 +175,32 @@ const updateProductService = {
     if (typeof payload.name !== 'undefined') updates.name = String(payload.name).trim();
     if (typeof payload.slug !== 'undefined') updates.slug = String(payload.slug).trim().toLowerCase();
     if (typeof payload.category !== 'undefined') updates.category = String(payload.category).trim();
-    if (typeof payload.price !== 'undefined') updates.price = Number(payload.price);
-    if (typeof payload.discountedPrice !== 'undefined') {
-      updates.discountedPrice = payload.discountedPrice === null ? undefined : Number(payload.discountedPrice);
+    const unset = {};
+    if (typeof payload.price !== 'undefined') {
+      updates.price = Number(payload.price);
+      if (isEmptyFormValue(payload.price) || !Number.isFinite(updates.price) || updates.price < 0) {
+        throw httpError(400, 'Price must be a number of 0 or more');
+      }
     }
-    if (typeof payload.stock !== 'undefined') updates.stock = Number(payload.stock);
+    if (typeof payload.discountedPrice !== 'undefined') {
+      if (isEmptyFormValue(payload.discountedPrice)) {
+        unset.discountedPrice = 1; // admin cleared the discount
+      } else {
+        updates.discountedPrice = Number(payload.discountedPrice);
+        if (!Number.isFinite(updates.discountedPrice) || updates.discountedPrice < 0) {
+          throw httpError(400, 'Discounted price must be a number of 0 or more');
+        }
+        if (typeof updates.price === 'number' && updates.discountedPrice > updates.price) {
+          throw httpError(400, 'Discounted price cannot be higher than the regular price');
+        }
+      }
+    }
+    if (typeof payload.stock !== 'undefined') {
+      updates.stock = Number(payload.stock);
+      if (isEmptyFormValue(payload.stock) || !Number.isInteger(updates.stock) || updates.stock < 0) {
+        throw httpError(400, 'Stock quantity must be a whole number of 0 or more');
+      }
+    }
     if (typeof payload.status !== 'undefined') updates.status = String(payload.status);
     if (typeof payload.featured !== 'undefined') updates.featured = payload.featured === 'true' || payload.featured === true;
     
@@ -207,7 +244,7 @@ const updateProductService = {
     if (files.thumbnail && files.thumbnail[0]) {
       updates.thumbnailUrl = toPublicPath(files.thumbnail[0].filename);
     } else if (payload.existingThumbnail) {
-      updates.thumbnailUrl = payload.existingThumbnail;
+      updates.thumbnailUrl = normalizeImageUrl(String(payload.existingThumbnail));
     } else if (typeof payload.thumbnailUrl !== 'undefined') {
       updates.thumbnailUrl = payload.thumbnailUrl ? String(payload.thumbnailUrl).trim() : undefined;
     }
@@ -226,12 +263,12 @@ const updateProductService = {
         }
       }
       
-      updates.bannerUrls = [...existingBanners, ...uploadedBanners].slice(0, 5);
+      updates.bannerUrls = [...existingBanners.map((u) => normalizeImageUrl(String(u))), ...uploadedBanners].slice(0, 5);
     } else if (payload.existingBanners) {
       try {
         updates.bannerUrls = JSON.parse(payload.existingBanners);
         if (!Array.isArray(updates.bannerUrls)) updates.bannerUrls = [];
-        updates.bannerUrls = updates.bannerUrls.slice(0, 5).map(u => String(u));
+        updates.bannerUrls = updates.bannerUrls.slice(0, 5).map(u => normalizeImageUrl(String(u)));
       } catch (e) {
         console.error('Error parsing existingBanners:', e);
         updates.bannerUrls = [];
@@ -312,14 +349,16 @@ const updateProductService = {
     });
 
     // Update the product in database
+    const update = { $set: updates };
+    if (Object.keys(unset).length) update.$unset = unset;
     const updated = await Product.findByIdAndUpdate(
-      id, 
-      { $set: updates }, 
+      id,
+      update,
       { new: true, runValidators: true }
     );
-    
+
     if (!updated) {
-      throw new Error('Product not found');
+      throw httpError(404, 'Product not found');
     }
     
     return updated;

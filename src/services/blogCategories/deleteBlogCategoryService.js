@@ -1,6 +1,7 @@
 // deleteBlogCategoryService.js
 const path = require('path');
 const BlogCategory = require(path.resolve(__dirname, '../../models/BlogCategory'));
+const Blog = require(path.resolve(__dirname, '../../models/blogModel'));
 const mongoose = require('mongoose');
 
 /**
@@ -26,14 +27,13 @@ const deleteBlogCategoryService = async (categoryId) => {
       throw new Error('Blog category not found');
     }
 
-    // Check if the category is used in any blogs
-    // This would require a Blog model, which we'll assume exists or will be created
-    // If Blog model doesn't exist yet, this check can be added later
-    if (mongoose.models.Blog) {
-      const blogCount = await mongoose.models.Blog.countDocuments({ category: categoryId });
-      if (blogCount > 0) {
-        throw new Error(`Cannot delete category: it is used in ${blogCount} blog(s)`);
-      }
+    // Refuse to delete a category that blogs still reference (drafts included).
+    // Blogs store their category in `categoryId` (see models/blogModel.js).
+    const blogCount = await Blog.countDocuments({ categoryId: category._id });
+    if (blogCount > 0) {
+      throw new Error(
+        `Cannot delete category: it is used in ${blogCount} blog(s). Move those blogs to another category or delete them first.`
+      );
     }
 
     // Delete the category

@@ -35,6 +35,26 @@ function getUserFromToken(token) {
   }
 }
 
+/**
+ * Read a boolean from a request body value. Multipart FormData sends booleans as strings,
+ * and Boolean('false') === true, so the usual spellings are parsed explicitly.
+ * @param {*} value - Raw value from req.body (boolean, number or string)
+ * @param {boolean} fallback - Returned when the value is missing, empty or not recognised
+ * @returns {boolean}
+ */
+function toBoolean(value, fallback = false) {
+  if (Array.isArray(value)) value = value[value.length - 1]; // field sent twice: last one wins
+  if (typeof value === 'boolean') return value;
+  if (typeof value === 'number') return value !== 0;
+  if (typeof value === 'string') {
+    const v = value.trim().toLowerCase();
+    if (['true', '1', 'yes', 'on'].includes(v)) return true;
+    if (['false', '0', 'no', 'off'].includes(v)) return false;
+  }
+  return fallback;
+}
+
 module.exports = {
-  getUserFromToken
+  getUserFromToken,
+  toBoolean
 };

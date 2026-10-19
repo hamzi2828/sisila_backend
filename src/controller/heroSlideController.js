@@ -1,4 +1,5 @@
 const HeroSlide = require('../models/heroSlideModel');
+const { toBoolean } = require('../helper/helper');
 
 // Get all active hero slides (public endpoint)
 const getActiveSlides = async (req, res) => {
@@ -102,7 +103,7 @@ const createSlide = async (req, res) => {
       buttonLink: buttonLink || undefined,
       secondButtonText: secondButtonText || undefined,
       secondButtonLink: secondButtonLink || undefined,
-      isActive: isActive !== undefined ? isActive === 'true' : true,
+      isActive: toBoolean(isActive, true), // accepts "true"/"false" (multipart) and real booleans (JSON)
       order: order ? parseInt(order) : undefined,
       ariaLabel: ariaLabel || undefined
     };
@@ -169,7 +170,7 @@ const updateSlide = async (req, res) => {
       buttonLink: buttonLink !== undefined ? buttonLink : slide.buttonLink,
       secondButtonText: secondButtonText !== undefined ? secondButtonText : slide.secondButtonText,
       secondButtonLink: secondButtonLink !== undefined ? secondButtonLink : slide.secondButtonLink,
-      isActive: isActive !== undefined ? isActive === 'true' : slide.isActive,
+      isActive: toBoolean(isActive, slide.isActive),
       order: order ? parseInt(order) : slide.order,
       ariaLabel: ariaLabel !== undefined ? ariaLabel : slide.ariaLabel
     };

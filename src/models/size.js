@@ -12,10 +12,12 @@ const sizeSchema = new mongoose.Schema(
 );
 
 // Helpers to format fields
+// Short size codes (s, xl, xxl, 3xl) are upper-cased; anything else ("Free size", "32") keeps its casing.
 function capitalizeFirstWord(str) {
   const s = String(str || '').trim();
   if (!s) return s;
-  return s.charAt(0).toUpperCase() + s.slice(1).toLowerCase();
+  if (/^[a-z0-9]{1,4}$/i.test(s)) return s.toUpperCase();
+  return s.charAt(0).toUpperCase() + s.slice(1);
 }
 
 // Ensure formatting on create/save

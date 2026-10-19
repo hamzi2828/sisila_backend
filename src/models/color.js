@@ -13,10 +13,11 @@ const colorSchema = new mongoose.Schema(
 );
 
 // Helpers to format fields
+// Capitalise the first letter of each word but keep the rest as typed ("off-White" -> "Off-White").
 function capitalizeFirstWord(str) {
   const s = String(str || '').trim();
   if (!s) return s;
-  return s.charAt(0).toUpperCase() + s.slice(1).toLowerCase();
+  return s.replace(/(^|[\s-])(\S)/g, (m, sep, ch) => sep + ch.toUpperCase());
 }
 
 // Ensure formatting on create/save

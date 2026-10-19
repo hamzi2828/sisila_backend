@@ -44,7 +44,10 @@ exports.getFeaturedBlogs = async (req, res) => {
 // Get all blogs with pagination and filtering
 exports.getAllBlogs = async (req, res) => {
   try {
-    const result = await getAllBlogsService(req.query);
+    // Visitors only ever see published posts; drafts are listed only for a signed-in admin
+    // (req.isAdmin is set by the optionalAdmin middleware).
+    const params = req.isAdmin ? req.query : { ...req.query, status: 'published' };
+    const result = await getAllBlogsService(params);
     
     return res.status(200).json({
       success: true,
@@ -67,7 +70,7 @@ exports.getBlogById = async (req, res) => {
     const { id } = req.params;
     const incrementView = req.query.view === 'true';
 
-    const result = await getBlogByIdService(id, incrementView);
+    const result = await getBlogByIdService(id, incrementView, { publishedOnly: !req.isAdmin });
 
     return res.status(200).json({
       success: true,
@@ -77,7 +80,8 @@ exports.getBlogById = async (req, res) => {
   } catch (error) {
     console.error(`Error getting blog ${req.params.id}:`, error);
 
-    if (error.message === 'Blog not found') {
+    // The service prefixes its errors ("Failed to fetch blog: Blog not found")
+    if (error.message.includes('Blog not found')) {
       return res.status(404).json({
         success: false,
         message: error.message
@@ -292,7 +296,7 @@ exports.getBlogsByCategory = async (req, res) => {
     const options = {
       page: req.query.page,
       limit: req.query.limit,
-      status: req.query.status,
+      status: req.isAdmin ? req.query.status : 'published', // drafts only for admins
       sortBy: req.query.sortBy,
       sortOrder: req.query.sortOrder,
       exclude: req.query.exclude

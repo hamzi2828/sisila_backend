@@ -222,7 +222,7 @@ const blogCategoryController = {
       if (error.message.includes('Cannot delete category')) {
         return res.status(409).json({
           success: false,
-          message: 'Cannot delete category as it is being used in blogs',
+          message: error.message, // e.g. "Cannot delete category: it is used in 2 blog(s). ..."
           error: error.message
         });
       }

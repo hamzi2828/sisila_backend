@@ -1,4 +1,5 @@
 const BlogHero = require('../models/blogHero');
+const { toBoolean } = require('../helper/helper');
 
 const blogHeroController = {
   // GET /blog-hero/active - Get active hero section (public)
@@ -117,7 +118,7 @@ const blogHeroController = {
         primaryButtonLink: primaryButtonLink.trim(),
         secondaryButtonText: secondaryButtonText.trim(),
         secondaryButtonLink: secondaryButtonLink.trim(),
-        isActive: Boolean(isActive),
+        isActive: toBoolean(isActive, false), // multipart sends "false" as a string
         sortOrder: sortOrder || 0
       };
 
@@ -166,6 +167,11 @@ const blogHeroController = {
       const uploadedFile = req.files?.backgroundImage?.[0];
       if (uploadedFile) {
         updateData.backgroundImage = uploadedFile.filename;
+      }
+
+      // Multipart sends booleans as strings ("true"/"false"); parse them explicitly
+      if (updateData.isActive !== undefined) {
+        updateData.isActive = toBoolean(updateData.isActive, hero.isActive);
       }
 
       // Update fields if provided

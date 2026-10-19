@@ -5,6 +5,8 @@ const router = express.Router();
 const userController = require('../controller/userController');
 const auth = require('../middleware/auth');
 const requireAdmin = require('../middleware/requireAdmin');
+// Public routes that also show drafts to a signed-in admin (sets req.isAdmin, never rejects).
+const optionalAdmin = require('../middleware/optionalAdmin');
 // Admin-only routes: signed in AND role === 'admin' (checked against the database).
 const adminAuth = [auth, requireAdmin];
 const categoryController = require('../controller/categoryController');
@@ -110,11 +112,11 @@ router.patch('/blog-categories/:id/toggle-featured', adminAuth, blogCategoryCont
 router.delete('/blog-categories/:id', adminAuth, blogCategoryController.deleteCategory);
 
 // Blog routes
-router.get('/blogs', blogController.getAllBlogs);
+router.get('/blogs', optionalAdmin, blogController.getAllBlogs); // drafts only for admins
 router.get('/blogs/featured', blogController.getFeaturedBlogs);
 router.get('/blogs/featured-categories', blogController.getFeaturedCategoriesWithBlogs);
 router.get('/blogs/slug/:slug', blogController.getBlogBySlug);
-router.get('/blogs/:id', blogController.getBlogById);
+router.get('/blogs/:id', optionalAdmin, blogController.getBlogById); // drafts only for admins
 router.post(
   '/blogs',
   adminAuth,
@@ -137,7 +139,7 @@ router.delete('/blogs/:id', adminAuth, blogController.deleteBlog);
 router.patch('/blogs/:id/views', blogController.incrementViews);
 router.patch('/blogs/:id/featured', adminAuth, blogController.toggleFeatured);
 router.patch('/blogs/:id/status', adminAuth, blogController.toggleStatus);
-router.get('/categories/:categoryId/blogs', blogController.getBlogsByCategory);
+router.get('/categories/:categoryId/blogs', optionalAdmin, blogController.getBlogsByCategory);
 
 // Author routes
 router.get('/authors', authorController.getAllAuthors);

@@ -1,5 +1,5 @@
 // createProductService.js
-const Product = require('../../model/product');
+const Product = require('../../models/product');
 const crypto = require('crypto');
 
 // Helper function to get public path from filename
@@ -12,6 +12,20 @@ const toPublicPath = (filename) => {
   }
   // For backward compatibility with old paths
   return filename;
+};
+
+// Validation error that the controller returns as HTTP 400 with this exact message
+const badRequest = (message) => {
+  const err = new Error(message);
+  err.status = 400;
+  return err;
+};
+
+// Older admin builds sent absolute image URLs with a leading slash ("/https://...")
+const normalizeImageUrl = (url) => {
+  if (typeof url !== 'string') return url;
+  const trimmed = url.trim();
+  return /^\/+https?:\/\//i.test(trimmed) ? trimmed.replace(/^\/+/, '') : trimmed;
 };
 
 // Helper function to parse JSON if string or return original value
@@ -123,6 +137,9 @@ const createProductService = {
 
     // Parse fields that might come as JSON strings via multipart/form-data
     bannerUrls = parseMaybeJSON(bannerUrls) || [];
+    if (!Array.isArray(bannerUrls)) bannerUrls = bannerUrls ? [bannerUrls] : [];
+    bannerUrls = bannerUrls.map(normalizeImageUrl).filter(Boolean);
+    thumbnailUrl = normalizeImageUrl(thumbnailUrl);
     variants = parseMaybeJSON(variants) || [];
     colorMedia = parseMaybeJSON(colorMedia);
 
@@ -148,7 +165,7 @@ const createProductService = {
             if (parsed.color && parsed.url) {
               if (!colorMedia[parsed.color]) colorMedia[parsed.color] = { bannerUrls: [] };
               if (!colorMedia[parsed.color].thumbnailUrl) {
-                colorMedia[parsed.color].thumbnailUrl = parsed.url;
+                colorMedia[parsed.color].thumbnailUrl = normalizeImageUrl(parsed.url);
               }
             }
           } catch (e) {
@@ -168,7 +185,7 @@ const createProductService = {
             const parsed = typeof item === 'string' ? JSON.parse(item) : item;
             if (parsed.color && parsed.urls) {
               if (!colorMedia[parsed.color]) colorMedia[parsed.color] = { bannerUrls: [] };
-              const existingBanners = parsed.urls || [];
+              const existingBanners = (parsed.urls || []).map(normalizeImageUrl);
               const newBanners = colorMedia[parsed.color].bannerUrls || [];
               const existingUrls = existingBanners.filter(url => !newBanners.includes(url));
               colorMedia[parsed.color].bannerUrls = [...existingUrls, ...newBanners].slice(0, 10);
@@ -200,7 +217,8 @@ const createProductService = {
     if (typeof stock === 'string' && stock !== '') stock = Number(stock);
     
     if (!name || !slug || !category) {
-      throw new Error('name, slug and category are required');
+      const missing = [!name && 'product name', !slug && 'slug', !category && 'category'].filter(Boolean);
+      throw badRequest(`Missing required field${missing.length > 1 ? 's' : ''}: ${missing.join(', ')}`);
     }
 
     name = String(name).trim();
@@ -210,7 +228,7 @@ const createProductService = {
 
     if (productType === 'variant') {
       if (!Array.isArray(variants) || variants.length === 0) {
-        throw new Error('At least one variant is required for variant products');
+        throw badRequest('At least one variant (colour + size) is required for variant products');
       }
       
       // Basic validation and ID generation for variants
@@ -231,16 +249,16 @@ const createProductService = {
 
       for (const v of variants) {
         if (!v.color || !v.size) {
-          throw new Error('Each variant must include color and size');
+          throw badRequest('Each variant must include a colour and a size');
         }
         if (!isNumber(v.price) || v.price < 0) {
-          throw new Error('Variant price must be a non-negative number');
+          throw badRequest(`Variant ${v.color}/${v.size}: price must be a number of 0 or more`);
         }
         if (!Number.isInteger(v.stock) || v.stock < 0) {
-          throw new Error('Variant stock must be a non-negative integer');
+          throw badRequest(`Variant ${v.color}/${v.size}: stock must be a whole number of 0 or more`);
         }
         if (isNumber(v.discountedPrice) && v.discountedPrice > v.price) {
-          throw new Error('Variant discountedPrice must be less than or equal to price');
+          throw badRequest(`Variant ${v.color}/${v.size}: discounted price cannot be higher than the price`);
         }
       }
 
@@ -252,18 +270,18 @@ const createProductService = {
       
       // For variant product, top-level discountedPrice is optional and ignored by many UIs
       if (isNumber(discountedPrice) && discountedPrice > price) {
-        throw new Error('discountedPrice must be less than or equal to price');
+        throw badRequest('Discounted price cannot be higher than the regular price');
       }
     } else {
       // single product validations
       if (!isNumber(price) || price < 0) {
-        throw new Error('price must be a non-negative number');
+        throw badRequest('Price must be a number of 0 or more');
       }
       if (!Number.isInteger(stock) || stock < 0) {
-        throw new Error('stock must be a non-negative integer');
+        throw badRequest('Stock quantity must be a whole number of 0 or more');
       }
       if (isNumber(discountedPrice) && discountedPrice > price) {
-        throw new Error('discountedPrice must be less than or equal to price');
+        throw badRequest('Discounted price cannot be higher than the regular price');
       }
     }
 

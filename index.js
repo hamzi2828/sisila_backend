@@ -143,34 +143,76 @@ app.use('/', async (req, res, next) => {
   }
 }, allRoutes);
 
-// Global error handler for Multer and other errors
+// Global error handler for Multer and other errors.
+// Always answer with JSON that has a human-readable `message`, so the admin UI can show the real reason.
+const { MAX_FILE_MB } = require('./src/helper/upload');
+const MULTER_FIELD_LABELS = {
+  thumbnail: 'thumbnail',
+  banners: 'banner',
+  colorThumbnail: 'colour thumbnail',
+  colorBanner: 'colour banner',
+  banner: 'banner',
+  image: 'image',
+  backgroundImage: 'background image',
+  avatar: 'avatar',
+  logo: 'logo',
+};
 app.use((error, req, res, next) => {
+  if (res.headersSent) return next(error);
+  const knownField = Object.prototype.hasOwnProperty.call(MULTER_FIELD_LABELS, error.field);
+  const fieldLabel = knownField ? MULTER_FIELD_LABELS[error.field] : 'uploaded';
+
   if (error.code === 'LIMIT_FILE_SIZE') {
-    return res.status(400).json({ 
-      error: 'File too large', 
-      message: `File size exceeds the maximum limit of ${process.env.UPLOAD_MAX_FILE_SIZE_MB || 5}MB` 
+    return res.status(413).json({
+      error: 'File too large',
+      // upload.js sets maxFileMb to the limit of the uploader that rejected the file (e.g. 20 MB for hero images)
+      message: `The ${fieldLabel} image is too large (max ${error.maxFileMb || MAX_FILE_MB} MB per image). Please use a smaller image.`,
     });
   }
-  
-  if (error.code === 'LIMIT_UNEXPECTED_FILE') {
-    return res.status(400).json({ 
-      error: 'Too many files', 
-      message: 'Number of files exceeds the maximum allowed. Maximum 10 banner images are allowed.' 
+
+  if (error.code === 'LIMIT_UNEXPECTED_FILE' && error.field && !knownField) {
+    return res.status(400).json({
+      error: 'Unexpected file',
+      message: `Unexpected file field "${error.field}".`,
     });
   }
-  
+
+  if (error.code === 'LIMIT_UNEXPECTED_FILE' || error.code === 'LIMIT_FILE_COUNT') {
+    return res.status(400).json({
+      error: 'Too many files',
+      message: `Too many ${fieldLabel} images were sent in one request. Please remove some images and try again.`,
+    });
+  }
+
   if (error.name === 'MulterError') {
-    return res.status(400).json({ 
-      error: 'Upload error', 
-      message: error.message 
+    return res.status(400).json({
+      error: 'Upload error',
+      message: `Image upload failed: ${error.message}`,
     });
   }
-  
+
+  if (error.code === 'INVALID_FILE_TYPE') {
+    return res.status(415).json({ error: 'Unsupported file type', message: error.message });
+  }
+
+  if (error.code === 'BLOB_UPLOAD_FAILED') {
+    return res.status(502).json({ error: 'Image storage error', message: error.message });
+  }
+
+  // Body parser errors (JSON/urlencoded bodies above the configured limit, malformed JSON)
+  if (error.type === 'entity.too.large') {
+    return res.status(413).json({ error: 'Payload too large', message: 'The request is too large.' });
+  }
+  if (error.type === 'entity.parse.failed') {
+    return res.status(400).json({ error: 'Invalid JSON', message: 'The request body is not valid JSON.' });
+  }
+
   // Default error handler
   console.error(error);
-  res.status(500).json({ 
-    error: 'Internal server error', 
-    message: error.message || 'Something went wrong' 
+  const status = Number.isInteger(error.status) && error.status >= 400 && error.status < 600 ? error.status : 500;
+  res.status(status).json({
+    error: status === 500 ? 'Internal server error' : 'Request error',
+    message: error.message || 'Something went wrong',
   });
 });
 

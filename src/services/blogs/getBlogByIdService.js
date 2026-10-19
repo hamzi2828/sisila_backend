@@ -6,9 +6,11 @@ const mongoose = require('mongoose');
  * Get a single blog by ID or slug
  * @param {String} identifier - Blog ID or slug
  * @param {Boolean} incrementView - Whether to increment view count (default: false)
+ * @param {Object} options
+ * @param {Boolean} options.publishedOnly - Treat drafts as not found (public visitors)
  * @returns {Promise<Object>} Blog details
  */
-const getBlogByIdService = async (identifier, incrementView = false) => {
+const getBlogByIdService = async (identifier, incrementView = false, { publishedOnly = false } = {}) => {
   try {
     // Determine if identifier is an ObjectId or slug
     let query;
@@ -17,6 +19,9 @@ const getBlogByIdService = async (identifier, incrementView = false) => {
     } else {
       // Treat as slug
       query = { slug: identifier };
+    }
+    if (publishedOnly) {
+      query.status = 'published';
     }
     
     // Find the blog

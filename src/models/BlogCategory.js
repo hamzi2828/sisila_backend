@@ -44,7 +44,7 @@ const blogCategorySchema = new mongoose.Schema(
 blogCategorySchema.virtual('blogCount', {
   ref: 'Blog',
   localField: '_id',
-  foreignField: 'category',
+  foreignField: 'categoryId',
   count: true,
 });
 
