@@ -130,7 +130,7 @@ const deleteAssociatedFiles = async (fileUrls) => {
   for (const fileUrl of fileUrls) {
     try {
       // Only delete if it's a blob URL
-      if (fileUrl && fileUrl.includes('blob.vercel-storage.com')) {
+      if (fileUrl && require('../../helper/objectStorage').isStorageUrl(fileUrl)) {
         await deleteFromBlob(fileUrl);
         results.push({
           path: fileUrl,

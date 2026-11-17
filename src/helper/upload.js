@@ -1,6 +1,9 @@
 // src/helper/upload.js
 const multer = require('multer');
-const { put, del } = require('@vercel/blob');
+// S3 bucket on Coolify when S3_BUCKET is set, otherwise Vercel Blob.
+const objectStorage = require('./objectStorage');
+const put = (...a) => (process.env.S3_BUCKET ? objectStorage.put(...a) : require('@vercel/blob').put(...a));
+const del = (...a) => (process.env.S3_BUCKET ? objectStorage.del(a[0]) : require('@vercel/blob').del(...a));
 const path = require('path');
 
 // Allowed image mime types
@@ -66,7 +69,7 @@ async function uploadToBlob(buffer, originalname, mimetype) {
  * @param {string} url - Full Vercel Blob URL to delete
  */
 async function deleteFromBlob(url) {
-  if (!url || !url.includes('blob.vercel-storage.com')) {
+  if (!url || !objectStorage.isStorageUrl(url)) {
     return; // Not a blob URL, skip
   }
 
